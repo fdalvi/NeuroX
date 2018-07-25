@@ -96,8 +96,29 @@ def main():
                 if len(line_tokens) > args.max_sent_l:
                     continue
                 tokens['target'].append(line_tokens)
-        
+
         # Check if all data is well formed (whether we have activations + labels for each and every word)
+        invalid_activation_idx = []
+        for idx, activation in enumerate(activations):
+            if activation.shape[0] == len(tokens['source_aux'][idx]) and len(tokens['source'][idx]) == len(tokens['target'][idx]):
+                pass
+            else:
+                invalid_activation_idx.append(idx)
+                print ("Skipping line: ", idx)
+        
+        for num_deleted, idx in enumerate(invalid_activation_idx):
+            print("Deleting line %d: %d activations, %d source, %d target"%
+                (idx - num_deleted, 
+                    activations[idx - num_deleted].shape[0], 
+                    len(tokens['source'][idx - num_deleted]), 
+                    len(tokens['target'][idx - num_deleted])
+                )
+            )
+            del(activations[idx - num_deleted])
+            del(tokens['source_aux'][idx - num_deleted])
+            del(tokens['source'][idx - num_deleted])
+            del(tokens['target'][idx - num_deleted])
+            
         for idx, activation in enumerate(activations):
             assert(activation.shape[0] == len(tokens['source_aux'][idx]))
             assert(len(tokens['source'][idx]) == len(tokens['target'][idx]))
@@ -123,11 +144,31 @@ def main():
                 if len(line_tokens) > args.max_sent_l:
                     continue
                 tokens['target'].append(line_tokens)
-        
+
         # Check if all data is well formed (whether we have activations + labels for each and every word)
+        invalid_activation_idx = []
+        for idx, activation in enumerate(activations):
+            if activation.shape[0] == len(tokens['source'][idx]) and activation.shape[0] == len(tokens['target'][idx]):
+                pass
+            else:
+                invalid_activation_idx.append(idx)
+                print ("Skipping line: ", idx)
+        
+        for num_deleted, idx in enumerate(invalid_activation_idx):
+            print("Deleting line %d: %d activations, %d source, %d target"%
+                (idx - num_deleted, 
+                    activations[idx - num_deleted].shape[0], 
+                    len(tokens['source'][idx - num_deleted]), 
+                    len(tokens['target'][idx - num_deleted])
+                )
+            )
+            del(activations[idx - num_deleted])
+            del(tokens['source'][idx - num_deleted])
+            del(tokens['target'][idx - num_deleted])
+            
         for idx, activation in enumerate(activations):
             assert(activation.shape[0] == len(tokens['source'][idx]))
-            assert(len(tokens['source'][idx]) == len(tokens['target'][idx]))
+            assert(activation.shape[0] == len(tokens['target'][idx]))
         
         return tokens
 
