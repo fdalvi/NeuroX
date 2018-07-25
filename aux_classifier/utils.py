@@ -54,6 +54,10 @@ def batch_generator(X, y, batch_size=32):
 def train_logreg_model(X_train, y_train, 
                         lambda_l1=None, lambda_l2=None, 
                         num_epochs=10, batch_size=32):
+    
+    # Check if we can use GPU's for training
+    use_gpu = torch.cuda.is_available()
+
     if (lambda_l1 is None or
         lambda_l2 is None):
         print("Please provide regularizer weights")
@@ -65,6 +69,8 @@ def train_logreg_model(X_train, y_train,
     print("Number of classes:", num_classes)
 
     model = LogisticRegression(X_train.shape[1], num_classes)
+    if use_gpu:
+        model = model.cuda()
 
     criterion = nn.CrossEntropyLoss()  
     optimizer = torch.optim.Adam(model.parameters())
@@ -77,6 +83,9 @@ def train_logreg_model(X_train, y_train,
         avg_loss = 0
         for inputs, labels in progressbar(batch_generator(X_tensor, y_tensor, batch_size=batch_size), desc = 'epoch [%d/%d]'%(epoch+1, num_epochs)):
             num_tokens += inputs.shape[0]
+            if use_gpu:
+                inputs = inputs.cuda()
+                labels = labels.cuda()
             inputs = Variable(inputs)
             labels = Variable(labels)
             
@@ -97,6 +106,9 @@ def train_logreg_model(X_train, y_train,
     return model
 
 def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, source_tokens=None):
+    # Check if we can use GPU's for training
+    use_gpu = torch.cuda.is_available()
+
     # Test the Model
     correct = 0
     wrong = 0
@@ -117,6 +129,9 @@ def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, sou
         src_word = -1
 
     for inputs, labels in progressbar(batch_generator(torch.from_numpy(X), torch.from_numpy(y)), desc = 'Evaluating'):
+        if use_gpu:
+            inputs = inputs.cuda()
+            labels = labels.cuda()
         inputs = Variable(inputs)
         labels = Variable(labels)
 
