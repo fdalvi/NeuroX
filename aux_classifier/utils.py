@@ -5,7 +5,23 @@ import torch
 import torch.nn as nn
 
 from torch.autograd import Variable
-from tqdm import tqdm, tqdm_notebook, tnrange
+
+def isnotebook():
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
+if isnotebook():
+    from tqdm import tqdm_notebook as progressbar
+else:
+    from tqdm import tqdm as progressbar
 
 class LogisticRegression(nn.Module):
     def __init__(self, input_size, num_classes):
@@ -59,7 +75,7 @@ def train_logreg_model(X_train, y_train,
     for epoch in range(num_epochs):
         num_tokens = 0
         avg_loss = 0
-        for inputs, labels in tqdm_notebook(batch_generator(X_tensor, y_tensor, batch_size=batch_size), desc = 'epoch [%d/%d]'%(epoch+1, num_epochs)):
+        for inputs, labels in progressbar(batch_generator(X_tensor, y_tensor, batch_size=batch_size), desc = 'epoch [%d/%d]'%(epoch+1, num_epochs)):
             num_tokens += inputs.shape[0]
             inputs = Variable(inputs)
             labels = Variable(labels)
@@ -69,7 +85,7 @@ def train_logreg_model(X_train, y_train,
             outputs = model(inputs)
             weights = list(model.parameters())[0]
             
-            loss = criterion(outputs, labels) #+ lambda_l1 * l1_penalty(weights) + lambda_l2 * l2_penalty(weights)
+            loss = criterion(outputs, labels) + lambda_l1 * l1_penalty(weights) + lambda_l2 * l2_penalty(weights)
             loss.backward()
             optimizer.step()
             
@@ -80,7 +96,7 @@ def train_logreg_model(X_train, y_train,
 
     return model
 
-def evaluate_model(model, X, y, idx_to_class=None):
+def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, source_tokens=None):
     # Test the Model
     correct = 0
     wrong = 0
@@ -88,7 +104,19 @@ def evaluate_model(model, X, y, idx_to_class=None):
     class_correct = {}
     class_wrong = {}
 
-    for inputs, labels in tqdm_notebook(batch_generator(torch.from_numpy(X), torch.from_numpy(y)), desc = 'Evaluating'):
+    def source_generator():
+        for s in source_tokens:
+            for t in s:
+                yield t
+
+    src_words = source_generator()
+
+    if return_predictions:
+        predictions = []
+    else:
+        src_word = -1
+
+    for inputs, labels in progressbar(batch_generator(torch.from_numpy(X), torch.from_numpy(y)), desc = 'Evaluating'):
         inputs = Variable(inputs)
         labels = Variable(labels)
 
@@ -97,6 +125,11 @@ def evaluate_model(model, X, y, idx_to_class=None):
         _, predicted = torch.max(outputs.data, 1)
         
         for i in range(0, len(predicted)):
+            if source_tokens:
+                src_word = next(src_words)
+            else:
+                src_word = src_word + 1
+
             idx = labels[i].item()
             if idx_to_class:
                 key = idx_to_class[idx]
@@ -105,8 +138,12 @@ def evaluate_model(model, X, y, idx_to_class=None):
 
             if predicted[i] == idx:
                 class_correct[key] = class_correct.get(key, 0) + 1
+                if return_predictions:
+                    predictions.append((src_word, key, True))
             else:
                 class_wrong[key] = class_wrong.get(key, 0) + 1
+                if return_predictions:
+                    predictions.append((src_word, key, False))
                     
         correct += (predicted == labels.data).sum()
         wrong += (predicted != labels.data).sum()
@@ -131,7 +168,10 @@ def evaluate_model(model, X, y, idx_to_class=None):
             class_accuracies[c] = 0
         else:
             class_accuracies[c] = class_correct.get(c, 0)/total
-    return class_accuracies
+    if return_predictions:
+        return class_accuracies, predictions
+    else:
+        return class_accuracies
 
 ### Neuron selection
 
@@ -214,7 +254,7 @@ def get_random_neurons(model, percentage):
 #       better orderings
 def get_neuron_ordering(model, class_to_idx, search_stride=100):
     num_neurons = list(model.parameters())[0].data.numpy().shape[1]
-    neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in tqdm_notebook(range(search_stride+1))]
+    neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in progressbar(range(search_stride+1))]
 
     considered_neurons = set()
     ordering = []
@@ -231,7 +271,7 @@ def get_neuron_ordering(model, class_to_idx, search_stride=100):
 
 def get_neuron_ordering_granular(model, class_to_idx, granularity=50, search_stride=100):
     num_neurons = list(model.parameters())[0].data.numpy().shape[1]
-    neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in tqdm_notebook(range(search_stride+1))]
+    neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in progressbar(range(search_stride+1))]
 
     sliding_idx = 0
     considered_neurons = set()
