@@ -107,7 +107,7 @@ def main():
                 pass
             else:
                 invalid_activation_idx.append(idx)
-                print ("Skipping line: ", idx)
+                print ("Skipping line: ", idx, "A: %d, aux: %d, src: %d, tgt: %s"%(activation.shape[0], len(tokens['source_aux'][idx]), len(tokens['source'][idx]), len(tokens['target'][idx])))
         
         for num_deleted, idx in enumerate(invalid_activation_idx):
             print("Deleting line %d: %d activations, %d source, %d target"%
