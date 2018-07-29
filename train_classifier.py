@@ -54,6 +54,9 @@ def main():
     parser.add_argument('--output-dir', dest='output_dir', 
                     required=True, help='Location to save all results')
 
+    parser.add_argument('--filter-layers', dest='filter_layers', default=None,
+                    type=str, help='Use specific layers for training. Format: f1,b1,f2,b2')
+
     args = parser.parse_args()
 
     print("Creating output directory...")
@@ -205,32 +208,34 @@ def main():
         train_activations = repr.char_get_last_activations(train_tokens, train_activations, is_brnn=(BRNN == 2))
         test_activations = repr.char_get_last_activations(test_tokens, test_activations, is_brnn=(BRNN == 2))
 
-    # RNN_SIZE = 500
-    # NUM_LAYERS = 2
-    # BRNN = 2 # Set to 1 for unidirectional, 2 for bidirectional
+    # Filtering
+    if args.filter_layers:
+        _layers = args.filter_layers.split(',')
 
-    # LAYER_LABELS = ['1', '2']
-    # BRNN_LABELS = ['Forward RNN', 'Backward RNN']
+        RNN_SIZE = 500
+        NUM_LAYERS = 2
 
-    # FILTER settings
-    #layers = [1, 2] # choose which layers you need the activations
-    # layers = [1, 2] # choose which layers you need the activations
-    # filtered_train_activations = None
-    # filtered_test_activations = None
+        # FILTER settings
+        layers = [1, 2] # choose which layers you need the activations
+        filtered_train_activations = None
+        filtered_test_activations = None
 
-    # layers_idx = []
-    # for brnn_idx in range(BRNN):
-    #     for l in layers:
-    #         start_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l-1) * RNN_SIZE
-    #         end_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l) * RNN_SIZE
-    #         layers_idx.append(np.arange(start_idx, end_idx))
-    # layers_idx = np.concatenate(layers_idx)
+        layers_idx = []
+        for brnn_idx, b in enumerate(['f','b']):
+            for l in layers:
+                if "%s%d"%(b, l) in _layers:
+                    start_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l-1) * RNN_SIZE
+                    end_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l) * RNN_SIZE
 
-    # filtered_train_activations = [a[:, layers_idx] for a in train_activations]
-    # filtered_test_activations = [a[:, layers_idx] for a in test_activations]
+                    print("Including neurons from %s%d(#%d to #%d)"%(b, l, start_idx, end_idx))
+                    layers_idx.append(np.arange(start_idx, end_idx))
+        layers_idx = np.concatenate(layers_idx)
 
-    # train_activations = filtered_train_activations
-    # test_activations = filtered_test_activations
+        filtered_train_activations = [a[:, layers_idx] for a in train_activations]
+        filtered_test_activations = [a[:, layers_idx] for a in test_activations]
+
+        train_activations = filtered_train_activations
+        test_activations = filtered_test_activations
 
     # multiclass utils
     def src2idx(toks):
@@ -353,7 +358,6 @@ def main():
 
     with open(os.path.join(args.output_dir, "test_predictions.json"), "w") as fp:
         json.dump(predictions, fp)
-p
 
 if __name__ == '__main__':
     main()
