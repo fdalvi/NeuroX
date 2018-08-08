@@ -106,6 +106,9 @@ def char_get_avg_activations(tokens, activations):
         if (len(word_boundaries) != num_words):
             print(i, len(word_boundaries), num_words)
         assert(len(word_boundaries) == num_words)
+        assert tokens['source_aux'][i].count('_')+1-tokens['source'][i].count('_') == num_words, \
+            "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s"%(i+1, num_words, tokens['source_aux'][i].count('_')+1,
+                " ".join(tokens['source'][i]), " ".join(tokens['source_aux'][i]))
 
         prev_idx = 0
         for word_idx, boundary in enumerate(word_boundaries):
@@ -140,6 +143,9 @@ def char_get_last_activations(tokens, activations, is_brnn=True):
         if (len(word_boundaries) != num_words):
             print(i, len(word_boundaries), num_words)
         assert(len(word_boundaries) == num_words)
+        assert tokens['source_aux'][i].count('_')+1-tokens['source'][i].count('_') == num_words, \
+            "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s"%(i+1, num_words, tokens['source_aux'][i].count('_')+1,
+                " ".join(tokens['source'][i]), " ".join(tokens['source_aux'][i]))
         
         rnn_boundary = int(num_neurons/2)
         if not is_brnn:
