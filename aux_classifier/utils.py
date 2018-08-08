@@ -105,7 +105,7 @@ def train_logreg_model(X_train, y_train,
 
     return model
 
-def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, source_tokens=None):
+def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, source_tokens=None, batch_size=32):
     # Check if we can use GPU's for training
     use_gpu = torch.cuda.is_available()
 
@@ -128,7 +128,7 @@ def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, sou
     else:
         src_word = -1
 
-    for inputs, labels in progressbar(batch_generator(torch.from_numpy(X), torch.from_numpy(y)), desc = 'Evaluating'):
+    for inputs, labels in progressbar(batch_generator(torch.from_numpy(X), torch.from_numpy(y), batch_size=batch_size), desc = 'Evaluating'):
         if use_gpu:
             inputs = inputs.cuda()
             labels = labels.cuda()
