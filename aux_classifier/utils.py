@@ -188,6 +188,90 @@ def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, sou
     else:
         return class_accuracies
 
+# multiclass utils
+def src2idx(toks):
+    uniq_toks = set().union(*toks)
+    return {p: idx for idx, p in enumerate(uniq_toks)}
+
+def idx2src(srcidx):
+    return {v: k for k, v in srcidx.items()}
+
+def count_target_words(tokens):
+    return sum([len(t) for t in tokens["target"]])
+
+def create_tensors(tokens, activations, task_specific_tag, mappings=None):
+    num_tokens = count_target_words(tokens)
+    print ("Number of tokens: ", num_tokens)
+
+    num_neurons = activations[0].shape[1]
+
+    source_tokens = tokens["source"]
+    target_tokens = tokens["target"]
+
+    ####### creating pos and source to index and reverse
+    if mappings is not None:
+        pos_idx, idx_pos, src_idx, idx_src = mappings
+    else:
+        pos_idx = src2idx(target_tokens)
+        idx_pos= idx2src(pos_idx)
+        src_idx = src2idx(source_tokens)
+        idx_src = idx2src(src_idx)
+
+    print ("length of POS dictionary: ", len(pos_idx))
+    print ("length of source dictionary: ", len(src_idx))
+
+    X = np.zeros((num_tokens, num_neurons), dtype=np.float32)
+    y = np.zeros((num_tokens,), dtype=np.int)
+
+    example_set = set()
+
+    idx = 0
+    for instance_idx, instance in enumerate(target_tokens):
+        for token_idx, token in enumerate(instance):
+            if idx < num_tokens:
+                X[idx] = activations[instance_idx][token_idx, :]
+
+            example_set.add(source_tokens[instance_idx][token_idx])
+            if mappings is not None and target_tokens[instance_idx][token_idx] not in pos_idx:
+                y[idx] = pos_idx[task_specific_tag]
+            else:
+                y[idx] = pos_idx[target_tokens[instance_idx][token_idx]]
+
+            idx += 1
+
+    print (idx)
+    print("Total instances: %d"%(num_tokens))
+    print(list(example_set)[:20])
+
+    return X, y, (pos_idx, idx_pos, src_idx, idx_src)
+
+def filter_activations_by_layers(train_activations, test_activations, filter_layers, rnn_size, num_layers):
+    _layers = filter_layers.split(',')
+
+    rnn_size = 500
+    num_layers = 2
+
+    # FILTER settings
+    layers = [1, 2] # choose which layers you need the activations
+    filtered_train_activations = None
+    filtered_test_activations = None
+
+    layers_idx = []
+    for brnn_idx, b in enumerate(['f','b']):
+        for l in layers:
+            if "%s%d"%(b, l) in _layers:
+                start_idx = brnn_idx * (num_layers*rnn_size) + (l-1) * rnn_size
+                end_idx = brnn_idx * (num_layers*rnn_size) + (l) * rnn_size
+
+                print("Including neurons from %s%d(#%d to #%d)"%(b, l, start_idx, end_idx))
+                layers_idx.append(np.arange(start_idx, end_idx))
+    layers_idx = np.concatenate(layers_idx)
+
+    filtered_train_activations = [a[:, layers_idx] for a in train_activations]
+    filtered_test_activations = [a[:, layers_idx] for a in test_activations]
+
+    return filtered_train_activations, filtered_test_activations
+
 ### Neuron selection
 
 # returns set of all top neurons, as well as top neurons per
@@ -195,7 +279,8 @@ def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, sou
 # distribution
 # Distributed tasks will have more top neurons than focused ones
 def get_top_neurons(model, percentage, class_to_idx):
-    weights = np.abs(list(model.parameters())[0].data.numpy())
+    weights = list(model.parameters())[0].data.cpu()
+    weights = np.abs(weights.numpy())
     top_neurons = {}
     for c in class_to_idx:
         total_mass = np.sum(weights[class_to_idx[c], :])
@@ -214,7 +299,8 @@ def get_top_neurons(model, percentage, class_to_idx):
 # class based on the threshold
 # Distributed tasks will have more top neurons than focused ones
 def get_top_neurons_hard_threshold(model, threshold, class_to_idx):
-    weights = np.abs(list(model.parameters())[0].data.numpy())
+    weights = list(model.parameters())[0].data.cpu()
+    weights = np.abs(weights.numpy())
     top_neurons = {}
     for c in class_to_idx:
         top_neurons[c] = np.where(weights[class_to_idx[c], :] > np.max(weights[class_to_idx[c], :])/threshold)[0]
@@ -232,7 +318,8 @@ def get_top_neurons_hard_threshold(model, threshold, class_to_idx):
 # The equal division leads to slighty fewer total neurons because
 # of overlap between classes
 def get_bottom_neurons(model, percentage, class_to_idx):
-    weights = np.abs(list(model.parameters())[0].data.numpy())
+    weights = list(model.parameters())[0].data.cpu()
+    weights = np.abs(weights.numpy())
 
     class_percentage = percentage/len(class_to_idx)
 
@@ -255,7 +342,8 @@ def get_bottom_neurons(model, percentage, class_to_idx):
 
 # returns set of random neurons, based on a percentage
 def get_random_neurons(model, percentage):
-    weights = np.abs(list(model.parameters())[0].data.numpy())
+    weights = list(model.parameters())[0].data.cpu()
+    weights = np.abs(weights.numpy())
 
     mask = np.random.random((weights.shape[1],))
     idx = np.where(mask<=percentage)[0]
@@ -268,7 +356,8 @@ def get_random_neurons(model, percentage):
 #   - increase the search_stride to get smaller chunks, and consequently
 #       better orderings
 def get_neuron_ordering(model, class_to_idx, search_stride=100):
-    num_neurons = list(model.parameters())[0].data.numpy().shape[1]
+    weights = list(model.parameters())[0].data.cpu()
+    num_neurons = weights.numpy().shape[1]
     neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in progressbar(range(search_stride+1))]
 
     considered_neurons = set()
@@ -285,7 +374,8 @@ def get_neuron_ordering(model, class_to_idx, search_stride=100):
     return ordering, cutoffs
 
 def get_neuron_ordering_granular(model, class_to_idx, granularity=50, search_stride=100):
-    num_neurons = list(model.parameters())[0].data.numpy().shape[1]
+    weights = list(model.parameters())[0].data.cpu()
+    num_neurons = weights.numpy().shape[1]
     neuron_orderings = [get_top_neurons(model, p/search_stride, class_to_idx)[0] for p in progressbar(range(search_stride+1))]
 
     sliding_idx = 0
@@ -336,7 +426,8 @@ def zero_out_activations_remove_neurons(neurons_to_remove, X):
 ### Stats
 def print_overall_stats(all_results):
     model = all_results['model']
-    num_neurons = list(model.parameters())[0].data.numpy().shape[1]
+    weights = list(model.parameters())[0].data.cpu()
+    num_neurons = weights.numpy().shape[1]
     print("Overall accuracy: %0.02f%%"%(100*all_results['original_accs']['__OVERALL__']))
 
     print("")
@@ -373,7 +464,8 @@ def print_overall_stats(all_results):
 
 def print_machine_stats(all_results):
     model = all_results['model']
-    num_neurons = list(model.parameters())[0].data.numpy().shape[1]
+    weights = list(model.parameters())[0].data.cpu()
+    num_neurons = weights.numpy().shape[1]
     print("Filtering out:")
     print("%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%0.2f\t%s"%(
         100*all_results['original_accs']['__OVERALL__'],

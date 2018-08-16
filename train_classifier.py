@@ -21,6 +21,70 @@ import aux_classifier.utils as utils
 import aux_classifier.representations as repr
 import aux_classifier.data_loader as data_loader
 
+def load_data_and_train(train_source, train_aux_source, train_labels, train_activations,
+                        test_source, test_aux_source, test_labels, test_activations,
+                        exp_type, task_specific_tag, max_sent_l, n_epochs, batch_size,
+                        is_brnn, filter_layers):
+    print("Loading activations...")
+    train_activations = load_lua(train_activations)['encodings']
+    test_activations = load_lua(test_activations)['encodings']
+    print("Number of train sentences: %d"%(len(train_activations)))
+    print("Number of test sentences: %d"%(len(test_activations)))
+
+    if exp_type == 'word' or exp_type == 'charcnn':
+        train_tokens = data_loader.load_data(train_source, train_labels, train_activations, max_sent_l)
+        test_tokens = data_loader.load_data(test_source, test_labels, test_activations, max_sent_l)
+    else:
+        train_tokens = data_loader.load_aux_data(train_source, train_labels, train_aux_source, train_activations, max_sent_l)
+        test_tokens = data_loader.load_aux_data(test_source, test_labels, test_aux_source, test_activations, max_sent_l)
+
+    NUM_TOKENS = sum([len(t) for t in train_tokens['target']])
+    print('Number of total train tokens: %d'%(NUM_TOKENS))
+
+    if exp_type != 'word' and exp_type != 'charcnn':
+        NUM_SOURCE_AUX_TOKENS = sum([len(t) for t in train_tokens['source_aux']])
+        print('Number of AUX source words: %d'%(NUM_SOURCE_AUX_TOKENS)) 
+
+    NUM_SOURCE_TOKENS = sum([len(t) for t in train_tokens['source']])
+    print('Number of source words: %d'%(NUM_SOURCE_TOKENS)) 
+
+    NUM_NEURONS = train_activations[0].shape[1]
+    print('Number of neurons: %d'%(NUM_NEURONS))
+
+    if exp_type == 'bpe_avg':
+        train_activations = repr.bpe_get_avg_activations(train_tokens, train_activations)
+        test_activations = repr.bpe_get_avg_activations(test_tokens, test_activations)
+    elif exp_type == 'bpe_last':
+        train_activations = repr.bpe_get_last_activations(train_tokens, train_activations, is_brnn=is_brnn)
+        test_activations = repr.bpe_get_last_activations(test_tokens, test_activations, is_brnn=is_brnn)
+    elif exp_type == 'char_avg':
+        train_activations = repr.char_get_avg_activations(train_tokens, train_activations)
+        test_activations = repr.char_get_avg_activations(test_tokens, test_activations)
+    elif exp_type == 'char_last':
+        train_activations = repr.char_get_last_activations(train_tokens, train_activations, is_brnn=is_brnn)
+        test_activations = repr.char_get_last_activations(test_tokens, test_activations, is_brnn=is_brnn)
+
+    # Filtering
+    if filter_layers:
+        train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, 500, 2)
+
+    print("Creating train tensors...")
+    X, y, mappings = utils.create_tensors(train_tokens, train_activations, task_specific_tag)
+    print (X.shape)
+    print (y.shape)
+
+    print("Creating test tensors...")
+    X_test, y_test, mappings = utils.create_tensors(test_tokens, test_activations, task_specific_tag, mappings)
+
+    label2idx, idx2label, src2idx, idx2src = mappings
+
+    print("Building model...")
+    model = utils.train_logreg_model(X, y, lambda_l1=0.00001, lambda_l2=0.00001, num_epochs=n_epochs, batch_size=batch_size)
+    train_accuracies = utils.evaluate_model(model, X, y, idx2label)
+    test_accuracies, predictions = utils.evaluate_model(model, X_test, y_test, idx2label, return_predictions=True, source_tokens=test_tokens['source'])
+
+    return model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, predictions, train_tokens, test_tokens
+
 def main():
     parser = argparse.ArgumentParser(description='Train a classifier')
     parser.add_argument('--train-source', dest='train_source', required=True,
@@ -65,157 +129,14 @@ def main():
 
     # Constants
     NUM_EPOCHS = 10
-    BATCH_SIZE = 128
-    BRNN = 2
+    BATCH_SIZE = 512
 
-    print("Loading activations...")
-    train_activations = load_lua(args.train_activations)['encodings']
-    test_activations = load_lua(args.test_activations)['encodings']
-    print("Number of train sentences: %d"%(len(train_activations)))
-    print("Number of test sentences: %d"%(len(test_activations)))
+    result = load_data_and_train(args.train_source, args.train_aux_source, args.train_labels, args.train_activations,
+                        args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
+                        args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
+                        True, args.filter_layers)
 
-    if args.exp_type == 'word' or args.exp_type == 'charcnn':
-        train_tokens = data_loader.load_data(args.train_source, args.train_labels, train_activations, args.max_sent_l)
-        test_tokens = data_loader.load_data(args.test_source, args.test_labels, test_activations, args.max_sent_l)
-    else:
-        train_tokens = data_loader.load_aux_data(args.train_source, args.train_labels, args.train_aux_source, train_activations, args.max_sent_l)
-        test_tokens = data_loader.load_aux_data(args.test_source, args.test_labels, args.test_aux_source, test_activations, args.max_sent_l)
-
-    NUM_TOKENS = sum([len(t) for t in train_tokens['target']])
-    print('Number of total train tokens: %d'%(NUM_TOKENS))
-
-    if args.exp_type != 'word' and args.exp_type != 'charcnn':
-        NUM_SOURCE_AUX_TOKENS = sum([len(t) for t in train_tokens['source_aux']])
-        print('Number of AUX source words: %d'%(NUM_SOURCE_AUX_TOKENS)) 
-
-    NUM_SOURCE_TOKENS = sum([len(t) for t in train_tokens['source']])
-    print('Number of source words: %d'%(NUM_SOURCE_TOKENS)) 
-
-    NUM_NEURONS = train_activations[0].shape[1]
-    print('Number of neurons: %d'%(NUM_NEURONS))
-
-    if args.exp_type == 'bpe_avg':
-        train_activations = repr.bpe_get_avg_activations(train_tokens, train_activations)
-        test_activations = repr.bpe_get_avg_activations(test_tokens, test_activations)
-    elif args.exp_type == 'bpe_last':
-        train_activations = repr.bpe_get_last_activations(train_tokens, train_activations, is_brnn=(BRNN == 2))
-        test_activations = repr.bpe_get_last_activations(test_tokens, test_activations, is_brnn=(BRNN == 2))
-    elif args.exp_type == 'char_avg':
-        train_activations = repr.char_get_avg_activations(train_tokens, train_activations)
-        test_activations = repr.char_get_avg_activations(test_tokens, test_activations)
-    elif args.exp_type == 'char_last':
-        train_activations = repr.char_get_last_activations(train_tokens, train_activations, is_brnn=(BRNN == 2))
-        test_activations = repr.char_get_last_activations(test_tokens, test_activations, is_brnn=(BRNN == 2))
-
-    # Filtering
-    if args.filter_layers:
-        _layers = args.filter_layers.split(',')
-
-        RNN_SIZE = 500
-        NUM_LAYERS = 2
-
-        # FILTER settings
-        layers = [1, 2] # choose which layers you need the activations
-        filtered_train_activations = None
-        filtered_test_activations = None
-
-        layers_idx = []
-        for brnn_idx, b in enumerate(['f','b']):
-            for l in layers:
-                if "%s%d"%(b, l) in _layers:
-                    start_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l-1) * RNN_SIZE
-                    end_idx = brnn_idx * (NUM_LAYERS*RNN_SIZE) + (l) * RNN_SIZE
-
-                    print("Including neurons from %s%d(#%d to #%d)"%(b, l, start_idx, end_idx))
-                    layers_idx.append(np.arange(start_idx, end_idx))
-        layers_idx = np.concatenate(layers_idx)
-
-        filtered_train_activations = [a[:, layers_idx] for a in train_activations]
-        filtered_test_activations = [a[:, layers_idx] for a in test_activations]
-
-        train_activations = filtered_train_activations
-        test_activations = filtered_test_activations
-
-    # multiclass utils
-    def src2idx(toks):
-        uniq_toks = set().union(*toks)
-        return {p: idx for idx, p in enumerate(uniq_toks)}
-
-    def idx2src(srcidx):
-        return {v: k for k, v in srcidx.items()}
-    # -----------------------------------------------------
-
-
-    def count_target_words(tokens):
-        return sum([len(t) for t in tokens["target"]])
-        
-        
-    def create_data(tokens, activations, mappings=None):
-
-        num_tokens = count_target_words(tokens)
-        print ("Number of tokens: ", num_tokens)
-        
-        num_neurons = activations[0].shape[1]
-        
-        source_tokens = tokens["source"]
-        target_tokens = tokens["target"]
-
-        ####### creating pos and source to index and reverse
-        if mappings is not None:
-            pos_idx, idx_pos, src_idx, idx_src = mappings
-        else:
-            pos_idx = src2idx(target_tokens)
-            idx_pos= idx2src(pos_idx)
-            src_idx = src2idx(source_tokens)
-            idx_src = idx2src(src_idx)
-        
-        print ("length of POS dictionary: ", len(pos_idx))
-        print ("length of source dictionary: ", len(src_idx))
-        #######
-        #
-        
-        X = np.zeros((num_tokens, num_neurons), dtype=np.float32)
-        y = np.zeros((num_tokens,), dtype=np.int)
-
-        example_set = set()
-        
-        idx = 0
-        for instance_idx, instance in enumerate(target_tokens):
-            for token_idx, token in enumerate(instance):
-                if idx < num_tokens:
-                    X[idx] = activations[instance_idx][token_idx, :]
-                
-                example_set.add(source_tokens[instance_idx][token_idx])
-                if mappings is not None and target_tokens[instance_idx][token_idx] not in pos_idx:
-                    y[idx] = pos_idx[args.task_specific_tag]
-                else:
-                    y[idx] = pos_idx[target_tokens[instance_idx][token_idx]]
-
-                idx += 1
-
-        print (idx)
-        print("Total instances: %d"%(num_tokens))
-        print(list(example_set)[:20])
-        
-        return X, y, (pos_idx, idx_pos, src_idx, idx_src)
-
-    print("Creating train tensors...")
-    X, y, mappings = create_data(train_tokens, train_activations)
-    print (X.shape)
-    print (y.shape)
-
-    print("Creating test tensors...")
-    X_test, y_test, mappings = create_data(test_tokens, test_activations, mappings)
-
-    label2idx, idx2label, src2idx, idx2src = mappings
-
-    print(np.sum(X))
-    print(np.sum(y))
-
-    print("Building model...")
-    model = utils.train_logreg_model(X, y, lambda_l1=0.00001, lambda_l2=0.00001, num_epochs=NUM_EPOCHS, batch_size=BATCH_SIZE)
-    train_accuracies = utils.evaluate_model(model, X, y, idx2label)
-    test_accuracies, predictions = utils.evaluate_model(model, X_test, y_test, idx2label, return_predictions=True, source_tokens=test_tokens['source'])
+    model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 
     print("Calculating statistics...")
     label_counts = {}
@@ -256,7 +177,7 @@ def main():
         json.dump(token_counts, fp)
 
     with open(os.path.join(args.output_dir, "test_predictions.json"), "w") as fp:
-        json.dump(predictions, fp)
+        json.dump(test_predictions, fp)
 
 if __name__ == '__main__':
     main()
