@@ -10,7 +10,6 @@ import os
 import re
 
 from itertools import product as p
-from torch.utils.serialization import load_lua
 from tqdm import tqdm, tqdm_notebook, tnrange
 
 # Import lib
@@ -26,8 +25,8 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
                         exp_type, task_specific_tag, max_sent_l, n_epochs, batch_size,
                         is_brnn, filter_layers):
     print("Loading activations...")
-    train_activations = load_lua(train_activations)['encodings']
-    test_activations = load_lua(test_activations)['encodings']
+    train_activations = data_loader.load_activations(train_activations)
+    test_activations = data_loader.load_activations(test_activations)
     print("Number of train sentences: %d"%(len(train_activations)))
     print("Number of test sentences: %d"%(len(test_activations)))
 

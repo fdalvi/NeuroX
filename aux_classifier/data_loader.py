@@ -1,4 +1,27 @@
 import numpy as np
+import torch
+
+from torch.utils.serialization import load_lua
+
+def load_activations(activations_path):
+    file_ext = activations_path.split('.')[-1]
+
+    activations = None
+
+    # Load activations based on type
+    # Also ensure everything is on the CPU
+    #   as activations may have been saved as CUDA variables
+    if file_ext == "t7":
+        print("Loading seq2seq-attn activations from %s..." % (activations_path))
+        activations = load_lua(activations_path)['encodings']
+        activations = [a.cpu() for a in activations]
+    elif file_ext == "pt":
+        print("Loading OpenNMT-py activations from %s..." % (activations_path))
+        activations = torch.load(activations_path)
+        activations = [torch.stack([torch.cat(token) for token in sentence]).cpu() for sentence in activations]
+
+    return activations
+
 
 def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l):
     tokens = {
@@ -99,6 +122,10 @@ def load_data(source_path, labels_path, activations, max_sent_l):
         else:
             invalid_activation_idx.append(idx)
             print ("Skipping line: ", idx)
+            print ("A: %d, S: %d, T: %d" % (activation.shape[0], len(tokens['source'][idx]), len(tokens['target'][idx])))
+
+            # assert len(invalid_activation_idx) < 100, "Too many mismatches - your paths are probably incorrect!"
+
     
     for num_deleted, idx in enumerate(invalid_activation_idx):
         print("Deleting line %d: %d activations, %d source, %d target"%
