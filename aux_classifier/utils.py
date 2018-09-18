@@ -287,7 +287,10 @@ def get_top_neurons(model, percentage, class_to_idx):
         sort_idx = np.argsort(weights[class_to_idx[c], :])[::-1]
         cum_sums = np.cumsum(weights[class_to_idx[c], sort_idx])
         unselected_neurons = np.where(cum_sums >= total_mass * percentage)[0]
-        selected_neurons = np.arange(unselected_neurons[0]+1)
+        if unselected_neurons.shape[0] == 0:
+            selected_neurons = np.arange(cum_sums.shape[0])
+        else:
+            selected_neurons = np.arange(unselected_neurons[0]+1)
         top_neurons[c] = sort_idx[selected_neurons]
 
     top_neurons_union = set()
