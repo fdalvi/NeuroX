@@ -23,7 +23,7 @@ import aux_classifier.data_loader as data_loader
 def load_data_and_train(train_source, train_aux_source, train_labels, train_activations,
                         test_source, test_aux_source, test_labels, test_activations,
                         exp_type, task_specific_tag, max_sent_l, n_epochs, batch_size,
-                        is_brnn, filter_layers, num_neurons_per_layer=500):
+                        is_brnn, filter_layers, ignore_start_token, num_neurons_per_layer=500):
     print("Loading activations...")
     train_activations, NUM_LAYERS = data_loader.load_activations(train_activations, num_neurons_per_layer, is_brnn=is_brnn)
     test_activations, _ = data_loader.load_activations(test_activations, num_neurons_per_layer, is_brnn=is_brnn)
@@ -31,11 +31,12 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     print("Number of test sentences: %d"%(len(test_activations)))
 
     if exp_type == 'word' or exp_type == 'charcnn' or exp_type == 'sent_last':
-        train_tokens = data_loader.load_data(train_source, train_labels, train_activations, max_sent_l, sentence_classification=(exp_type == 'sent_last'))
-        test_tokens = data_loader.load_data(test_source, test_labels, test_activations, max_sent_l, sentence_classification=(exp_type == 'sent_last'))
+        train_tokens = data_loader.load_data(train_source, train_labels, train_activations, max_sent_l, ignore_start_token=ignore_start_token, sentence_classification=(exp_type == 'sent_last'))
+        test_tokens = data_loader.load_data(test_source, test_labels, test_activations, max_sent_l, ignore_start_token=ignore_start_token, sentence_classification=(exp_type == 'sent_last'))
     else:
-        train_tokens = data_loader.load_aux_data(train_source, train_labels, train_aux_source, train_activations, max_sent_l)
-        test_tokens = data_loader.load_aux_data(test_source, test_labels, test_aux_source, test_activations, max_sent_l)
+        # TODO: Implement sentence classification for subword systems
+        train_tokens = data_loader.load_aux_data(train_source, train_labels, train_aux_source, train_activations, max_sent_l, ignore_start_token=ignore_start_token)
+        test_tokens = data_loader.load_aux_data(test_source, test_labels, test_aux_source, test_activations, max_sent_l, ignore_start_token=ignore_start_token)
 
     NUM_TOKENS = sum([len(t) for t in train_tokens['target']])
     print('Number of total train tokens: %d'%(NUM_TOKENS))
@@ -131,6 +132,9 @@ def main():
     parser.add_argument('--filter-layers', dest='filter_layers', default=None,
                     type=str, help='Use specific layers for training. Format: f1,b1,f2,b2')
 
+    parser.add_argument('--ignore-start-token', dest='ignore_start_token', default=False,
+                    action='store_true', help='Ignore the first token of every sentence')
+
     args = parser.parse_args()
 
     if args.train_activations.split('.')[-1] == "pt" and args.filter_layers:
@@ -150,7 +154,7 @@ def main():
     result = load_data_and_train(args.train_source, args.train_aux_source, args.train_labels, args.train_activations,
                         args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
                         args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
-                        args.is_brnn, args.filter_layers)
+                        args.is_brnn, args.filter_layers, args.ignore_start_token)
 
     model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 

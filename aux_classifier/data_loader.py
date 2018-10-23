@@ -28,7 +28,8 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
     return activations, int(num_layers)
 
 
-def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l):
+def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l, ignore_start_token=False):
+    print(ignore_start_token)
     tokens = {
         'source_aux': [],
         'source': [],
@@ -42,6 +43,9 @@ def load_aux_data(source_path, labels_path, source_aux_path, activations, max_se
             if len(line_tokens) > max_sent_l:
                 print("Skipping line #%d because of length (aux)"%(line_idx))
                 skipped_lines.add(line_idx)
+            if ignore_start_token:
+                line_tokens = line_tokens[1:]
+                activations[line_idx] = activations[line_idx][1:,:]
             tokens['source_aux'].append(line_tokens)
     with open(source_path) as fp:
         for line_idx, line in enumerate(fp):
@@ -49,6 +53,8 @@ def load_aux_data(source_path, labels_path, source_aux_path, activations, max_se
             if len(line_tokens) > max_sent_l:
                 print("Skipping line #%d because of length (source)"%(line_idx))
                 skipped_lines.add(line_idx)
+            if ignore_start_token:
+                line_tokens = line_tokens[1:]
             tokens['source'].append(line_tokens)
 
     with open(labels_path) as fp:
@@ -57,12 +63,15 @@ def load_aux_data(source_path, labels_path, source_aux_path, activations, max_se
             if len(line_tokens) > max_sent_l:
                 print("Skipping line #%d because of length (label)"%(line_idx))
                 skipped_lines.add(line_idx)
+            if ignore_start_token:
+                line_tokens = line_tokens[1:]
             tokens['target'].append(line_tokens)
 
     assert len(tokens['source_aux']) == len(tokens['source']) and len(tokens['source_aux']) == len(tokens['target']), \
         "Number of lines do not match (source: %d, aux: %d, target: %d)!"%(len(tokens['source']), len(tokens['source_aux']), len(tokens['target']))
 
     for num_deleted, line_idx in enumerate(sorted(skipped_lines)):
+        print("Deleting skipped line %d" % (line_idx))
         del(tokens['source_aux'][line_idx])
         del(tokens['source'][line_idx])
         del(tokens['target'][line_idx])
@@ -96,17 +105,20 @@ def load_aux_data(source_path, labels_path, source_aux_path, activations, max_se
     
     return tokens
 
-def load_data(source_path, labels_path, activations, max_sent_l, sentence_classification=False):
+def load_data(source_path, labels_path, activations, max_sent_l, ignore_start_token=False, sentence_classification=False):
     tokens = {
         'source': [],
         'target': []
     }
 
     with open(source_path) as fp:
-        for line in fp:
+        for line_idx, line in enumerate(fp):
             line_tokens = line.strip().split()
             if len(line_tokens) > max_sent_l:
                 continue
+            if ignore_start_token:
+                line_tokens = line_tokens[1:]
+                activations[line_idx] = activations[line_idx][1:,:]
             tokens['source'].append(line_tokens)
 
     with open(labels_path) as fp:
@@ -114,6 +126,8 @@ def load_data(source_path, labels_path, activations, max_sent_l, sentence_classi
             line_tokens = line.strip().split()
             if len(line_tokens) > max_sent_l:
                 continue
+            if ignore_start_token:
+                line_tokens = line_tokens[1:]
             tokens['target'].append(line_tokens)
 
     assert len(tokens['source']) == len(tokens['target']), \

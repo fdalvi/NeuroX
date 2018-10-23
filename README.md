@@ -16,3 +16,5 @@ Code to train classifier from activations extracted from https://github.com/fdal
  - `--max-sent-l`: Max sentence length, should match what was used for preprocessing while training the seq2seq model
  - `--output-dir`: Output directory to store models, vocabs, predictions & results
  - `--filter-layers`: Train classifier with only a few layers. Specify layers as comma separated list. e.g. `f1,b2` (Forward layer 1, Backward Layer 2)
+ - `--ignore-start-token`: Ignore the first token of every sentence in the source/source_aux/labels files
+ - `--is-bidirectional`: Default: `true`. Specifies if the original MT model is bidirectional
