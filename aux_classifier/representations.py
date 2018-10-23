@@ -164,3 +164,17 @@ def char_get_last_activations(tokens, activations, is_brnn=True):
         all_activations.append(new_activations)
     
     return all_activations
+
+def sent_get_last_activations(tokens, activations, is_brnn=True):
+    all_activations = []
+    num_neurons = activations[0].size(1)
+
+    for i in tqdm(range(0, len(tokens['source']))):
+        source = tokens['source'][i]
+        num_words = len(source)
+        new_activations = np.zeros((1, num_neurons))
+
+        new_activations[0, :] = activations[i][-1, :]
+        all_activations.append(new_activations)
+
+    return all_activations

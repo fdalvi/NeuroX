@@ -30,9 +30,9 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     print("Number of train sentences: %d"%(len(train_activations)))
     print("Number of test sentences: %d"%(len(test_activations)))
 
-    if exp_type == 'word' or exp_type == 'charcnn':
-        train_tokens = data_loader.load_data(train_source, train_labels, train_activations, max_sent_l)
-        test_tokens = data_loader.load_data(test_source, test_labels, test_activations, max_sent_l)
+    if exp_type == 'word' or exp_type == 'charcnn' or exp_type == 'sent_last':
+        train_tokens = data_loader.load_data(train_source, train_labels, train_activations, max_sent_l, sentence_classification=(exp_type == 'sent_last'))
+        test_tokens = data_loader.load_data(test_source, test_labels, test_activations, max_sent_l, sentence_classification=(exp_type == 'sent_last'))
     else:
         train_tokens = data_loader.load_aux_data(train_source, train_labels, train_aux_source, train_activations, max_sent_l)
         test_tokens = data_loader.load_aux_data(test_source, test_labels, test_aux_source, test_activations, max_sent_l)
@@ -40,7 +40,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     NUM_TOKENS = sum([len(t) for t in train_tokens['target']])
     print('Number of total train tokens: %d'%(NUM_TOKENS))
 
-    if exp_type != 'word' and exp_type != 'charcnn':
+    if exp_type != 'word' and exp_type != 'charcnn' and exp_type != 'sent_last':
         NUM_SOURCE_AUX_TOKENS = sum([len(t) for t in train_tokens['source_aux']])
         print('Number of AUX source words: %d'%(NUM_SOURCE_AUX_TOKENS)) 
 
@@ -62,6 +62,11 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     elif exp_type == 'char_last':
         train_activations = repr.char_get_last_activations(train_tokens, train_activations, is_brnn=is_brnn)
         test_activations = repr.char_get_last_activations(test_tokens, test_activations, is_brnn=is_brnn)
+    elif exp_type == 'sent_last':
+        train_activations = repr.sent_get_last_activations(train_tokens, train_activations, is_brnn=is_brnn)
+        test_activations = repr.sent_get_last_activations(test_tokens, test_activations, is_brnn=is_brnn)
+        train_tokens['source'] = [['sent_%d' % (i)] for i in range(len(train_activations))]
+        test_tokens['source'] = [['sent_%d' % (i)] for i in range(len(test_activations))]
 
     # Filtering
     if filter_layers:
@@ -105,7 +110,7 @@ def main():
                     help='Location of test source activations')
     
     parser.add_argument('--exp-type', dest='exp_type', 
-                    choices=['word', 'charcnn', 'bpe_avg', 'bpe_last', 'char_avg', 'char_last'],
+                    choices=['word', 'charcnn', 'bpe_avg', 'bpe_last', 'char_avg', 'char_last', 'sent_last'],
                     default='word', required=True,
                     help='Type of experiment')
 
@@ -113,7 +118,10 @@ def main():
                     required=True, help='Tag incase test has unknown tags')
 
     parser.add_argument('--max-sent-l', dest='max_sent_l', type=int,
-                    default=250, help='Tag incase test has unknown tags')
+                    default=250, help='Maximum sentence length')
+    parser.add_argument('--is-bidirectional', dest='is_brnn', type=bool,
+                    default=True, help='Set to false if original model is unidirectional, \
+                                or if the representations are from the decoder side')
 
     parser.add_argument('--output-dir', dest='output_dir', 
                     required=True, help='Location to save all results')
@@ -133,7 +141,7 @@ def main():
     result = load_data_and_train(args.train_source, args.train_aux_source, args.train_labels, args.train_activations,
                         args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
                         args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
-                        True, args.filter_layers)
+                        args.is_brnn, args.filter_layers)
 
     model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 

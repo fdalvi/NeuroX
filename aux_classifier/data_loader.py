@@ -91,7 +91,7 @@ def load_aux_data(source_path, labels_path, source_aux_path, activations, max_se
     
     return tokens
 
-def load_data(source_path, labels_path, activations, max_sent_l):
+def load_data(source_path, labels_path, activations, max_sent_l, sentence_classification=False):
     tokens = {
         'source': [],
         'target': []
@@ -117,7 +117,8 @@ def load_data(source_path, labels_path, activations, max_sent_l):
     # Check if all data is well formed (whether we have activations + labels for each and every word)
     invalid_activation_idx = []
     for idx, activation in enumerate(activations):
-        if activation.shape[0] == len(tokens['source'][idx]) and activation.shape[0] == len(tokens['target'][idx]):
+        if activation.shape[0] == len(tokens['source'][idx]) \
+            and (sentence_classification or activation.shape[0] == len(tokens['target'][idx])):
             pass
         else:
             invalid_activation_idx.append(idx)
@@ -141,6 +142,7 @@ def load_data(source_path, labels_path, activations, max_sent_l):
         
     for idx, activation in enumerate(activations):
         assert(activation.shape[0] == len(tokens['source'][idx]))
-        assert(activation.shape[0] == len(tokens['target'][idx]))
+        if not sentence_classification:
+            assert(activation.shape[0] == len(tokens['target'][idx]))
     
     return tokens
