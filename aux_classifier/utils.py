@@ -109,6 +109,9 @@ def evaluate_model(model, X, y, idx_to_class=None, return_predictions=False, sou
     # Check if we can use GPU's for training
     use_gpu = torch.cuda.is_available()
 
+    if use_gpu:
+        model = model.cuda()
+
     # Test the Model
     correct = 0
     wrong = 0
