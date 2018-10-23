@@ -29,7 +29,6 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
 
 
 def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l, ignore_start_token=False):
-    print(ignore_start_token)
     tokens = {
         'source_aux': [],
         'source': [],

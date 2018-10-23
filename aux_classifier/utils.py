@@ -248,8 +248,12 @@ def create_tensors(tokens, activations, task_specific_tag, mappings=None):
 
     return X, y, (pos_idx, idx_pos, src_idx, idx_src)
 
-def filter_activations_by_layers(train_activations, test_activations, filter_layers, rnn_size, num_layers):
+def filter_activations_by_layers(train_activations, test_activations, filter_layers, rnn_size, num_layers, is_brnn):
     _layers = filter_layers.split(',')
+
+    layer_prefixes = ['f']
+    if is_brnn:
+        layer_prefixes = ['f', 'b']
 
     # FILTER settings
     layers = list(range(1, num_layers+1)) # choose which layers you need the activations
@@ -257,7 +261,7 @@ def filter_activations_by_layers(train_activations, test_activations, filter_lay
     filtered_test_activations = None
 
     layers_idx = []
-    for brnn_idx, b in enumerate(['f','b']):
+    for brnn_idx, b in enumerate(layer_prefixes):
         for l in layers:
             if "%s%d"%(b, l) in _layers:
                 start_idx = brnn_idx * (num_layers*rnn_size) + (l-1) * rnn_size

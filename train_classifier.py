@@ -72,7 +72,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
 
     # Filtering
     if filter_layers:
-        train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, 500, NUM_LAYERS)
+        train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, num_neurons_per_layer, NUM_LAYERS, is_brnn)
         print("Filtered number of neurons: %d" % (train_activations[0].shape[1]))
 
     print("Creating train tensors...")
@@ -122,8 +122,8 @@ def main():
 
     parser.add_argument('--max-sent-l', dest='max_sent_l', type=int,
                     default=250, help='Maximum sentence length')
-    parser.add_argument('--is-bidirectional', dest='is_brnn', type=bool,
-                    default=True, help='Set to false if original model is unidirectional, \
+    parser.add_argument('--is-unidirectional', dest='is_brnn', action='store_false',
+                    default=True, help='Include this flag if original model is unidirectional, \
                                 or if the representations are from the decoder side')
 
     parser.add_argument('--output-dir', dest='output_dir', 
