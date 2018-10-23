@@ -25,7 +25,7 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         activations = [torch.stack([torch.cat(token) for token in sentence]).cpu() for sentence in activations]
         num_layers = len(activations[0][0]) / num_neurons_per_layer
 
-    return activations, num_layers
+    return activations, int(num_layers)
 
 
 def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l):

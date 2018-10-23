@@ -72,6 +72,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     # Filtering
     if filter_layers:
         train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, 500, NUM_LAYERS)
+        print("Filtered number of neurons: %d" % (train_activations[0].shape[1]))
 
     print("Creating train tensors...")
     X, y, mappings = utils.create_tensors(train_tokens, train_activations, task_specific_tag)
