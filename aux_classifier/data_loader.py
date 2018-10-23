@@ -3,10 +3,11 @@ import torch
 
 from torch.utils.serialization import load_lua
 
-def load_activations(activations_path):
+def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
     file_ext = activations_path.split('.')[-1]
 
     activations = None
+    num_layers = None
 
     # Load activations based on type
     # Also ensure everything is on the CPU
@@ -15,12 +16,16 @@ def load_activations(activations_path):
         print("Loading seq2seq-attn activations from %s..." % (activations_path))
         activations = load_lua(activations_path)['encodings']
         activations = [a.cpu() for a in activations]
+        num_layers = len(activations[0][0]) / num_neurons_per_layer
+        if is_brnn:
+            num_layers /= 2
     elif file_ext == "pt":
         print("Loading OpenNMT-py activations from %s..." % (activations_path))
         activations = torch.load(activations_path)
         activations = [torch.stack([torch.cat(token) for token in sentence]).cpu() for sentence in activations]
+        num_layers = len(activations[0][0]) / num_neurons_per_layer
 
-    return activations
+    return activations, num_layers
 
 
 def load_aux_data(source_path, labels_path, source_aux_path, activations, max_sent_l):

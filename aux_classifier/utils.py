@@ -251,11 +251,8 @@ def create_tensors(tokens, activations, task_specific_tag, mappings=None):
 def filter_activations_by_layers(train_activations, test_activations, filter_layers, rnn_size, num_layers):
     _layers = filter_layers.split(',')
 
-    rnn_size = 500
-    num_layers = 2
-
     # FILTER settings
-    layers = [1, 2] # choose which layers you need the activations
+    layers = list(range(1, num_layers+1)) # choose which layers you need the activations
     filtered_train_activations = None
     filtered_test_activations = None
 

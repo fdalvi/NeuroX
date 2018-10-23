@@ -23,10 +23,10 @@ import aux_classifier.data_loader as data_loader
 def load_data_and_train(train_source, train_aux_source, train_labels, train_activations,
                         test_source, test_aux_source, test_labels, test_activations,
                         exp_type, task_specific_tag, max_sent_l, n_epochs, batch_size,
-                        is_brnn, filter_layers):
+                        is_brnn, filter_layers, num_neurons_per_layer=500):
     print("Loading activations...")
-    train_activations = data_loader.load_activations(train_activations)
-    test_activations = data_loader.load_activations(test_activations)
+    train_activations, NUM_LAYERS = data_loader.load_activations(train_activations, num_neurons_per_layer, is_brnn=is_brnn)
+    test_activations, _ = data_loader.load_activations(test_activations, num_neurons_per_layer, is_brnn=is_brnn)
     print("Number of train sentences: %d"%(len(train_activations)))
     print("Number of test sentences: %d"%(len(test_activations)))
 
@@ -49,6 +49,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
 
     NUM_NEURONS = train_activations[0].shape[1]
     print('Number of neurons: %d'%(NUM_NEURONS))
+    print("Number of layers: %d" % (NUM_LAYERS))
 
     if exp_type == 'bpe_avg':
         train_activations = repr.bpe_get_avg_activations(train_tokens, train_activations)
@@ -70,7 +71,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
 
     # Filtering
     if filter_layers:
-        train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, 500, 2)
+        train_activations, test_activations = utils.filter_activations_by_layers(train_activations, test_activations, filter_layers, 500, NUM_LAYERS)
 
     print("Creating train tensors...")
     X, y, mappings = utils.create_tensors(train_tokens, train_activations, task_specific_tag)
@@ -130,6 +131,13 @@ def main():
                     type=str, help='Use specific layers for training. Format: f1,b1,f2,b2')
 
     args = parser.parse_args()
+
+    if args.train_activations.split('.')[-1] == "pt" and args.filter_layers:
+        _layers = [x.strip() for x in args.filter_layers.strip().split(',')]
+        for l in _layers:
+            if l[0] == 'f':
+                assert "b%s"%(l[1]) in _layers, "OpenNMT-py does not support separating forward and backward layers. Please specify both fX,bX for layer X."
+
 
     print("Creating output directory...")
     os.makedirs(args.output_dir, exist_ok=True)
