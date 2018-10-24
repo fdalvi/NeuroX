@@ -125,6 +125,8 @@ def main():
     parser.add_argument('--is-unidirectional', dest='is_brnn', action='store_false',
                     default=True, help='Include this flag if original model is unidirectional, \
                                 or if the representations are from the decoder side')
+    parser.add_argument('--num-neurons-per-layer', dest='num_neurons_per_layer', type=int,
+                    default=500, help='Number of neurons in each layer')
 
     parser.add_argument('--output-dir', dest='output_dir', 
                     required=True, help='Location to save all results')
@@ -154,7 +156,7 @@ def main():
     result = load_data_and_train(args.train_source, args.train_aux_source, args.train_labels, args.train_activations,
                         args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
                         args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
-                        args.is_brnn, args.filter_layers, args.ignore_start_token)
+                        args.is_brnn, args.filter_layers, args.ignore_start_token, args.num_neurons_per_layer)
 
     model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 
