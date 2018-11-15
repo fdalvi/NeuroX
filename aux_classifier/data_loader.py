@@ -24,6 +24,8 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         activations = torch.load(activations_path)
         activations = [torch.stack([torch.cat(token) for token in sentence]).cpu() for sentence in activations]
         num_layers = len(activations[0][0]) / num_neurons_per_layer
+    else:
+        assert False, "Activations must be of type t7 or pt"
 
     return activations, int(num_layers)
 

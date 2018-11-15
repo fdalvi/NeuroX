@@ -23,7 +23,7 @@ import aux_classifier.data_loader as data_loader
 def load_data_and_train(train_source, train_aux_source, train_labels, train_activations,
                         test_source, test_aux_source, test_labels, test_activations,
                         exp_type, task_specific_tag, max_sent_l, n_epochs, batch_size,
-                        is_brnn, filter_layers, ignore_start_token, num_neurons_per_layer=500):
+                        is_brnn, filter_layers, ignore_start_token, num_neurons_per_layer, lambda_l1, lambda_l2):
     print("Loading activations...")
     train_activations, NUM_LAYERS = data_loader.load_activations(train_activations, num_neurons_per_layer, is_brnn=is_brnn)
     test_activations, _ = data_loader.load_activations(test_activations, num_neurons_per_layer, is_brnn=is_brnn)
@@ -86,7 +86,7 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_acti
     label2idx, idx2label, src2idx, idx2src = mappings
 
     print("Building model...")
-    model = utils.train_logreg_model(X, y, lambda_l1=0.00001, lambda_l2=0.00001, num_epochs=n_epochs, batch_size=batch_size)
+    model = utils.train_logreg_model(X, y, lambda_l1=lambda_l1, lambda_l2=lambda_l2, num_epochs=n_epochs, batch_size=batch_size)
     train_accuracies = utils.evaluate_model(model, X, y, idx2label)
     test_accuracies, predictions = utils.evaluate_model(model, X_test, y_test, idx2label, return_predictions=True, source_tokens=test_tokens['source'])
 
@@ -137,6 +137,11 @@ def main():
     parser.add_argument('--ignore-start-token', dest='ignore_start_token', default=False,
                     action='store_true', help='Ignore the first token of every sentence')
 
+    parser.add_argument('--lambda1', dest='lambda_l1', default=0.00001,
+                    type=float, help='Regularizer weight L1')
+    parser.add_argument('--lambda2', dest='lambda_l2', default=0.00001,
+                    type=float, help='Regularizer weight L1')
+
     args = parser.parse_args()
 
     if args.train_activations.split('.')[-1] == "pt" and args.filter_layers:
@@ -156,7 +161,8 @@ def main():
     result = load_data_and_train(args.train_source, args.train_aux_source, args.train_labels, args.train_activations,
                         args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
                         args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
-                        args.is_brnn, args.filter_layers, args.ignore_start_token, args.num_neurons_per_layer)
+                        args.is_brnn, args.filter_layers, args.ignore_start_token, args.num_neurons_per_layer,
+                        args.lambda1, args.lambda2)
 
     model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 
