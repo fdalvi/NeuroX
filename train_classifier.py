@@ -140,7 +140,7 @@ def main():
     parser.add_argument('--lambda1', dest='lambda_l1', default=0.00001,
                     type=float, help='Regularizer weight L1')
     parser.add_argument('--lambda2', dest='lambda_l2', default=0.00001,
-                    type=float, help='Regularizer weight L1')
+                    type=float, help='Regularizer weight L2')
 
     args = parser.parse_args()
 
@@ -162,7 +162,7 @@ def main():
                         args.test_source, args.test_aux_source, args.test_labels, args.test_activations,
                         args.exp_type, args.task_specific_tag, args.max_sent_l, NUM_EPOCHS, BATCH_SIZE,
                         args.is_brnn, args.filter_layers, args.ignore_start_token, args.num_neurons_per_layer,
-                        args.lambda1, args.lambda2)
+                        args.lambda_l1, args.lambda_l2)
 
     model, label2idx, idx2label, src2idx, idx2src, train_accuracies, test_accuracies, test_predictions, train_tokens, test_tokens = result
 
