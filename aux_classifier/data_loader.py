@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import pickle
 
 from torch.utils.serialization import load_lua
 
@@ -24,8 +25,25 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         activations = torch.load(activations_path)
         activations = [torch.stack([torch.cat(token) for token in sentence]).cpu() for sentence in activations]
         num_layers = len(activations[0][0]) / num_neurons_per_layer
+    elif file_ext == "acts":
+        print("Loading generic activations from %s..." % (activations_path))
+        with open(activations_path, 'rb') as activations_file:
+            activations = pickle.load(activations_file)
+
+        # Combine all layers sequentially
+        print("Combining layers " + str([a[0] for a in activations]))
+        activations = [a[1] for a in activations]
+        num_layers = len(activations)
+        num_sentences = len(activations[0])
+        concatenated_activations = []
+        for sentence_idx in range(num_sentences):
+            sentence_acts = []
+            for layer_idx in range(num_layers):
+                sentence_acts.append(np.vstack(activations[layer_idx][sentence_idx]))
+            concatenated_activations.append(np.concatenate(sentence_acts, axis=1))
+        activations = concatenated_activations
     else:
-        assert False, "Activations must be of type t7 or pt"
+        assert False, "Activations must be of type t7, pt or acts"
 
     return activations, int(num_layers)
 
