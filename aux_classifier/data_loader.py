@@ -1,10 +1,26 @@
+import pickle
+
 import numpy as np
 import torch
-import pickle
 
 from torch.utils.serialization import load_lua
 
 def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
+    """Load extracted activations.
+
+    Arguments:
+    activations_path (str): Path to the activations file. Can be of type t7, pt, acts
+    num_neurons_per_layer (int): Number of neurons per layer - used to compute total
+        number of layers.
+    is_brnn (bool): If the model used to extract activations was bidirectional (default: True)
+
+    Returns:
+    activations (list x numpy matrix): List of `sentence representations`, where each
+        `sentence representation` is a numpy matrix of shape
+        (num tokens in sentence x concatenated representation size)
+    num_layers (int): Number of layers. This is usually representation_size/num_neurons_per_layer.
+        Divide again by 2 if model was bidirectional
+    """
     file_ext = activations_path.split('.')[-1]
 
     activations = None
