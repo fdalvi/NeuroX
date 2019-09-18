@@ -330,17 +330,17 @@ def get_bottom_neurons(model, percentage, class_to_idx):
     weights = list(model.parameters())[0].data.cpu()
     weights = np.abs(weights.numpy())
 
-    class_percentage = percentage/len(class_to_idx)
-
     bottom_neurons = {}
     for c in class_to_idx:
-        idx = np.argsort(weights[class_to_idx[c], :])
-
-        # randomly round to maintain closer total number
-        num_elements = class_percentage * weights.shape[1]
-        num_elements = num_elements + (random.random() < (num_elements - int(num_elements)))
-
-        bottom_neurons[c] = idx[:int(num_elements)]
+        total_mass = np.sum(weights[class_to_idx[c], :])
+        sort_idx = np.argsort(weights[class_to_idx[c], :])
+        cum_sums = np.cumsum(weights[class_to_idx[c], sort_idx])
+        unselected_neurons = np.where(cum_sums >= total_mass * percentage)[0]
+        if unselected_neurons.shape[0] == 0:
+            selected_neurons = np.arange(cum_sums.shape[0])
+        else:
+            selected_neurons = np.arange(unselected_neurons[0]+1)
+        bottom_neurons[c] = sort_idx[selected_neurons]
 
     bottom_neurons_union = set()
     for k in bottom_neurons:
@@ -349,13 +349,19 @@ def get_bottom_neurons(model, percentage, class_to_idx):
 
     return np.array(list(bottom_neurons_union)), bottom_neurons
 
+# Returns num_bottom_neurons bottom neurons from the global ordering
+def get_fixed_number_of_bottom_neurons(model, num_bottom_neurons, class_to_idx):
+    ordering = get_neuron_ordering(model, class_to_idx)
+
+    return ordering[-num_bottom_neurons:]
+
 # returns set of random neurons, based on a percentage
 def get_random_neurons(model, percentage):
     weights = list(model.parameters())[0].data.cpu()
     weights = np.abs(weights.numpy())
 
     mask = np.random.random((weights.shape[1],))
-    idx = np.where(mask<=percentage)[0]
+    idx = np.where(mask <= percentage)[0]
 
     return idx
 
