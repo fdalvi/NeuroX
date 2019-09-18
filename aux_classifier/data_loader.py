@@ -1,5 +1,7 @@
 import pickle
+import json
 
+import h5py
 import numpy as np
 import torch
 
@@ -58,8 +60,21 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
                 sentence_acts.append(np.vstack(activations[layer_idx][sentence_idx]))
             concatenated_activations.append(np.concatenate(sentence_acts, axis=1))
         activations = concatenated_activations
+    elif file_ext == "hdf5":
+        print("Loading hdf5 activations from %s..." % (activations_path))
+        representations = h5py.File(activations_path, "r")
+        sentence_to_index = json.loads(representations.get("sentence_to_index")[0])
+        activations = []
+        for _, value in sentence_to_index.items():
+            sentence_acts = torch.FloatTensor(representations[value])
+            num_layers, sentence_length, embedding_size = \
+                sentence_acts.shape[0], sentence_acts.shape[1], sentence_acts.shape[2]
+            sentence_acts = np.swapaxes(sentence_acts, 0, 1)
+            sentence_acts = sentence_acts.reshape(sentence_length, num_layers*embedding_size)
+            activations.append(sentence_acts.numpy())
+        num_layers = len(activations[0][0]) / num_neurons_per_layer
     else:
-        assert False, "Activations must be of type t7, pt or acts"
+        assert False, "Activations must be of type t7, pt, acts or hdf5"
 
     return activations, int(num_layers)
 
