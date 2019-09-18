@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from imblearn.under_sampling import RandomUnderSampler
 from torch.autograd import Variable
 
 
@@ -673,3 +674,34 @@ def print_machine_stats(all_results):
                 str(top_neurons_per_tag_list),
             )
         )
+
+
+### Data Balancing functions
+def balance_binary_class_data(X, y):
+    rus = RandomUnderSampler()
+    X_res, y_res = rus.fit_resample(X, y)
+
+    return X_res, y_res
+
+# Returns a balanced X,y pair
+#  If num_required_instances is not provided, all classes are sampled to
+#   match the minority class
+#  If num_required_instances is provided, classes are sampled proportionally
+#   Note: returned number of instances may not always be eqial to num_required_instances
+#   because of rounding proportions
+def balance_multi_class_data(X, y, num_required_instances=None):
+    if num_required_instances:
+        total = y.shape[0]
+        unique, counts = np.unique(y, return_counts=True)
+        class_counts = dict(zip(unique, counts))
+        num_instances_per_class = {
+            key: int(count / total * num_required_instances)
+            for key, count in class_counts.items()
+        }
+        rus = RandomUnderSampler(sampling_strategy=num_instances_per_class)
+    else:
+        rus = RandomUnderSampler()
+
+    X_res, y_res = rus.fit_resample(X, y)
+
+    return X_res, y_res
