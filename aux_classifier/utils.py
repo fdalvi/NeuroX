@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import torch
 import torch.nn as nn
@@ -695,9 +696,10 @@ def balance_multi_class_data(X, y, num_required_instances=None):
         unique, counts = np.unique(y, return_counts=True)
         class_counts = dict(zip(unique, counts))
         num_instances_per_class = {
-            key: int(count / total * num_required_instances)
+            key: math.ceil(count / total * num_required_instances)
             for key, count in class_counts.items()
         }
+        print(num_instances_per_class)
         rus = RandomUnderSampler(sampling_strategy=num_instances_per_class)
     else:
         rus = RandomUnderSampler()
