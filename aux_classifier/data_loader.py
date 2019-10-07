@@ -136,6 +136,11 @@ def load_aux_data(
         % (len(tokens["source"]), len(tokens["source_aux"]), len(tokens["target"]))
     )
 
+    assert len(activations) == len(tokens["source"]), (
+        "Number of lines do not match (activations: %d, source: %d)!"
+        % (len(activations), len(tokens["source"]))
+    )
+
     for num_deleted, line_idx in enumerate(sorted(skipped_lines)):
         print("Deleting skipped line %d" % (line_idx))
         del tokens["source_aux"][line_idx]
@@ -163,6 +168,9 @@ def load_aux_data(
                     len(tokens["target"][idx]),
                 ),
             )
+
+    assert len(invalid_activation_idx) < 100, \
+        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!" % (len(invalid_activation_idx))
 
     for num_deleted, idx in enumerate(invalid_activation_idx):
         print(
@@ -221,6 +229,11 @@ def load_data(
         % (len(tokens["source"]), len(tokens["target"]))
     )
 
+    assert len(activations) == len(tokens["source"]), (
+        "Number of lines do not match (activations: %d, source: %d)!"
+        % (len(activations), len(tokens["source"]))
+    )
+
     # Check if all data is well formed (whether we have activations + labels for
     # each and every word)
     invalid_activation_idx = []
@@ -241,8 +254,8 @@ def load_data(
                 )
             )
 
-            # assert len(invalid_activation_idx) < 100, \
-            #   "Too many mismatches - your paths are probably incorrect!"
+    assert len(invalid_activation_idx) < 100, \
+        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!" % (len(invalid_activation_idx))
 
     for num_deleted, idx in enumerate(invalid_activation_idx):
         print(
