@@ -82,6 +82,19 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
             )
             activations.append(sentence_acts.numpy())
         num_layers = len(activations[0][0]) / num_neurons_per_layer
+    elif file_ext == "json":
+        print("Loading json activations from %s..." % (activations_path))
+        activations = []
+        with open(activations_path) as fp:
+            for line in fp:
+                token_acts = []
+                sentence_activations = json.loads(line)['features']
+                for act in sentence_activations:
+                    token_acts.append(np.concatenate([l['values'] for l in act['layers']]))
+                activations.append(np.vstack(token_acts))
+
+        num_layers = activations[0].shape[1] / num_neurons_per_layer
+        print(len(activations), num_layers)
     else:
         assert False, "Activations must be of type t7, pt, acts or hdf5"
 
