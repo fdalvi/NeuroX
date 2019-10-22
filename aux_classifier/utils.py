@@ -62,7 +62,13 @@ def batch_generator(X, y, batch_size=32):
 
 ## Training and evaluation
 def train_logreg_model(
-    X_train, y_train, lambda_l1=None, lambda_l2=None, num_epochs=10, batch_size=32
+    X_train,
+    y_train,
+    lambda_l1=None,
+    lambda_l2=None,
+    num_epochs=10,
+    batch_size=32,
+    learning_rate=0.001,
 ):
 
     # Check if we can use GPU's for training
@@ -82,7 +88,7 @@ def train_logreg_model(
         model = model.cuda()
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     X_tensor = torch.from_numpy(X_train)
     y_tensor = torch.from_numpy(y_train)
@@ -683,6 +689,7 @@ def balance_binary_class_data(X, y):
     X_res, y_res = rus.fit_resample(X, y)
 
     return X_res, y_res
+
 
 # Returns a balanced X,y pair
 #  If num_required_instances is not provided, all classes are sampled to
