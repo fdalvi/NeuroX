@@ -290,3 +290,37 @@ def load_data(
             assert activation.shape[0] == len(tokens["target"][idx])
 
     return tokens
+
+def load_sentence_data(
+    source_path,
+    labels_path,
+    activations
+):
+    tokens = {"source": [], "target": []}
+
+    with open(source_path) as source_fp:
+        for line_idx, line in enumerate(source_fp):
+            tokens["source"].append(["sentence_%d" % (line_idx)])
+
+    with open(labels_path) as labels_fp:
+        for line in labels_fp:
+            line_tokens = line.strip().split()
+            tokens["target"].append(line_tokens)
+
+    assert len(tokens["source"]) == len(tokens["target"]), (
+        "Number of lines do not match (source: %d, target: %d)!"
+        % (len(tokens["source"]), len(tokens["target"]))
+    )
+
+    assert len(activations) == len(tokens["source"]), (
+        "Number of lines do not match (activations: %d, source: %d)!"
+        % (len(activations), len(tokens["source"]))
+    )
+
+    # Check if all data is well formed (whether we have activations + labels for
+    # each and every word)
+    invalid_activation_idx = []
+    for idx, activation in enumerate(activations):
+        assert activation.shape[0] == len(tokens["source"][idx])
+
+    return tokens
