@@ -6,6 +6,8 @@ import torch.nn as nn
 from imblearn.under_sampling import RandomUnderSampler
 from torch.autograd import Variable
 
+from . import metrics
+
 
 def isnotebook():
     try:
@@ -138,6 +140,7 @@ def evaluate_model(
     return_predictions=False,
     source_tokens=None,
     batch_size=32,
+    metric="accuracy",
 ):
     # Check if we can use GPU's for training
     use_gpu = torch.cuda.is_available()
@@ -146,6 +149,7 @@ def evaluate_model(
         model = model.cuda()
 
     # Test the Model
+    y_pred = []
     correct = 0
     wrong = 0
 
@@ -192,6 +196,8 @@ def evaluate_model(
             else:
                 key = idx
 
+            y_pred.append(predicted[i])
+
             if predicted[i] == idx:
                 class_correct[key] = class_correct.get(key, 0) + 1
                 if return_predictions:
@@ -212,22 +218,31 @@ def evaluate_model(
 
     print("Number of correctly predicted instances: ", correct)
     print("Number of incorrectly predicted instances: ", wrong)
-    print("Accuracy of the model: %0.2f %%" % (100 * correct / (correct + wrong)))
 
-    class_accuracies = {}
-    class_accuracies["__OVERALL__"] = correct / (correct + wrong)
+    y_pred = np.array(y_pred)
+
+    result = metrics.compute_score(y_pred, y, metric)
+
+    print("Score (%s) of the model: %0.2f" % (metric, result))
+
+    class_scores = {}
+    class_scores["__OVERALL__"] = result
 
     for i in idx_to_class:
-        c = idx_to_class[i]
-        total = class_correct.get(c, 0) + class_wrong.get(c, 0)
+        class_name = idx_to_class[i]
+        class_instances_idx = np.where(y == i)[0]
+        y_pred_filtered = y_pred[class_instances_idx]
+        y_filtered = y[class_instances_idx]
+        total = y_filtered.shape
         if total == 0:
-            class_accuracies[c] = 0
+            class_scores[class_name] = 0
         else:
-            class_accuracies[c] = class_correct.get(c, 0) / total
+            class_scores[class_name] = metrics.compute_score(
+                y_pred_filtered, y_filtered, metric
+            )
     if return_predictions:
-        return class_accuracies, predictions
-    else:
-        return class_accuracies
+        return class_scores, predictions
+    return class_scores
 
 
 # multiclass utils
