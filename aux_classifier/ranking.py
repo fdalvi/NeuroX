@@ -14,6 +14,7 @@ def create_correlation_clusters(
     """
     # Compute correlations
     corr = np.corrcoef(X.T)
+    corr = np.nan_to_num(corr)
     corr = (corr + corr.T) / 2
     np.fill_diagonal(corr, 1)
     print("Correlation matrix size (#neurons x #neurons):", corr.shape)
@@ -53,3 +54,15 @@ def print_clusters(clusters):
             "Cluster %05d: %s"
             % (i, " ".join([str(x) for x in np.where(clusters == i)[0]]))
         )
+
+from scipy.spatial.distance import pdist
+def scikit_extract_independent_neurons(X, clustering_threshold=0.5):
+    c = pdist(X.T, metric='correlation')
+    hi = linkage(c, method='average')
+    clusters = fcluster(hi, clustering_threshold, criterion='distance')
+
+    independent_neurons = []
+    for i in range(np.min(clusters), np.max(clusters) + 1):
+        independent_neurons.append(np.random.choice(np.where(clusters == i)[0]))
+
+    return independent_neurons, clusters
