@@ -28,9 +28,9 @@ else:
     from tqdm import tqdm as progressbar
 
 
-class LogisticRegression(nn.Module):
+class LinearNet(nn.Module):
     def __init__(self, input_size, num_classes):
-        super(LogisticRegression, self).__init__()
+        super(LinearNet, self).__init__()
         self.linear = nn.Linear(input_size, num_classes)
 
     def forward(self, x):
@@ -72,7 +72,50 @@ def train_logreg_model(
     batch_size=32,
     learning_rate=0.001,
 ):
+    return train_model(
+        X_train,
+        y_train,
+        model_type="classification",
+        lambda_l1=lambda_l1,
+        lambda_l2=lambda_l2,
+        num_epochs=num_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+    )
 
+
+def train_linear_regression_model(
+    X_train,
+    y_train,
+    lambda_l1=None,
+    lambda_l2=None,
+    num_epochs=10,
+    batch_size=32,
+    learning_rate=0.001,
+):
+    return train_model(
+        X_train,
+        y_train,
+        model_type="regression",
+        lambda_l1=lambda_l1,
+        lambda_l2=lambda_l2,
+        num_epochs=num_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+    )
+
+
+def train_model(
+    X_train,
+    y_train,
+    model_type,
+    lambda_l1=None,
+    lambda_l2=None,
+    num_epochs=10,
+    batch_size=32,
+    learning_rate=0.001,
+):
+    print("Training %s model" % (model_type))
     # Check if we can use GPU's for training
     use_gpu = torch.cuda.is_available()
 
@@ -81,15 +124,30 @@ def train_logreg_model(
         return
 
     print("Creating model...")
-    num_classes = len(set(y_train))
+    if model_type == "classification":
+        num_classes = len(set(y_train))
+        assert (
+            num_classes > 1
+        ), "Classification problem must have more than one target class"
+    else:
+        num_classes = 1
     print("Number of training instances:", X_train.shape[0])
-    print("Number of classes:", num_classes)
+    if model_type == "classification":
+        print("Number of classes:", num_classes)
 
-    model = LogisticRegression(X_train.shape[1], num_classes)
+    model = LinearNet(X_train.shape[1], num_classes)
     if use_gpu:
         model = model.cuda()
 
-    criterion = nn.CrossEntropyLoss()
+    if model_type == "classification":
+        criterion = nn.CrossEntropyLoss()
+    elif model_type == "regression":
+        criterion = nn.MSELoss()
+    else:
+        assert (
+            model_type == "classification" or model_type == "regression"
+        ), "Invalid model type"
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     X_tensor = torch.from_numpy(X_train)
@@ -112,6 +170,8 @@ def train_logreg_model(
             # Forward + Backward + Optimize
             optimizer.zero_grad()
             outputs = model(inputs)
+            if model_type == "regression":
+                outputs = outputs.squeeze()
             weights = list(model.parameters())[0]
 
             loss = (
@@ -150,11 +210,6 @@ def evaluate_model(
 
     # Test the Model
     y_pred = []
-    correct = 0
-    wrong = 0
-
-    class_correct = {}
-    class_wrong = {}
 
     def source_generator():
         for s in source_tokens:
@@ -182,7 +237,12 @@ def evaluate_model(
 
         outputs = model(inputs)
 
-        _, predicted = torch.max(outputs.data, 1)
+        if outputs.data.shape[1] == 1:
+            # Regression
+            predicted = outputs.data
+        else:
+            # Classification
+            _, predicted = torch.max(outputs.data, 1)
 
         for i in range(0, len(predicted)):
             if source_tokens:
@@ -198,26 +258,8 @@ def evaluate_model(
 
             y_pred.append(predicted[i])
 
-            if predicted[i] == idx:
-                class_correct[key] = class_correct.get(key, 0) + 1
-                if return_predictions:
-                    predictions.append((src_word, key, True))
-            else:
-                class_wrong[key] = class_wrong.get(key, 0) + 1
-                if return_predictions:
-                    predictions.append((src_word, key, False))
-
-        correct += (predicted == labels.data).sum()
-        wrong += (predicted != labels.data).sum()
-
-    correct = correct.item()
-    wrong = wrong.item()
-
-    assert correct == sum([class_correct[k] for k in class_correct])
-    assert wrong == sum([class_wrong[k] for k in class_wrong])
-
-    print("Number of correctly predicted instances: ", correct)
-    print("Number of incorrectly predicted instances: ", wrong)
+            if return_predictions:
+                predictions.append((src_word, key, predicted[i] == idx))
 
     y_pred = np.array(y_pred)
 
@@ -228,30 +270,32 @@ def evaluate_model(
     class_scores = {}
     class_scores["__OVERALL__"] = result
 
-    for i in idx_to_class:
-        class_name = idx_to_class[i]
-        class_instances_idx = np.where(y == i)[0]
-        y_pred_filtered = y_pred[class_instances_idx]
-        y_filtered = y[class_instances_idx]
-        total = y_filtered.shape
-        if total == 0:
-            class_scores[class_name] = 0
-        else:
-            class_scores[class_name] = metrics.compute_score(
-                y_pred_filtered, y_filtered, metric
-            )
+    if idx_to_class:
+        for i in idx_to_class:
+            class_name = idx_to_class[i]
+            class_instances_idx = np.where(y == i)[0]
+            y_pred_filtered = y_pred[class_instances_idx]
+            y_filtered = y[class_instances_idx]
+            total = y_filtered.shape
+            if total == 0:
+                class_scores[class_name] = 0
+            else:
+                class_scores[class_name] = metrics.compute_score(
+                    y_pred_filtered, y_filtered, metric
+                )
+
     if return_predictions:
         return class_scores, predictions
     return class_scores
 
 
 # multiclass utils
-def src2idx(toks):
+def tok2idx(toks):
     uniq_toks = set().union(*toks)
     return {p: idx for idx, p in enumerate(uniq_toks)}
 
 
-def idx2src(srcidx):
+def idx2tok(srcidx):
     return {v: k for k, v in srcidx.items()}
 
 
@@ -259,7 +303,12 @@ def count_target_words(tokens):
     return sum([len(t) for t in tokens["target"]])
 
 
-def create_tensors(tokens, activations, task_specific_tag, mappings=None):
+def create_tensors(
+    tokens, activations, task_specific_tag, mappings=None, model_type="classification"
+):
+    assert (
+        model_type == "classification" or model_type == "regression"
+    ), "Invalid model type"
     num_tokens = count_target_words(tokens)
     print("Number of tokens: ", num_tokens)
 
@@ -270,18 +319,26 @@ def create_tensors(tokens, activations, task_specific_tag, mappings=None):
 
     ####### creating pos and source to index and reverse
     if mappings is not None:
-        pos_idx, idx_pos, src_idx, idx_src = mappings
+        if model_type == "classification":
+            label2idx, idx2label, src2idx, idx2src = mappings
+        else:
+            src2idx, idx2src = mappings
     else:
-        pos_idx = src2idx(target_tokens)
-        idx_pos = idx2src(pos_idx)
-        src_idx = src2idx(source_tokens)
-        idx_src = idx2src(src_idx)
+        if model_type == "classification":
+            label2idx = tok2idx(target_tokens)
+            idx2label = idx2tok(label2idx)
+        src2idx = tok2idx(source_tokens)
+        idx2src = idx2tok(src2idx)
 
-    print("length of POS dictionary: ", len(pos_idx))
-    print("length of source dictionary: ", len(src_idx))
+    print("length of source dictionary: ", len(src2idx))
+    if model_type == "classification":
+        print("length of target dictionary: ", len(label2idx))
 
     X = np.zeros((num_tokens, num_neurons), dtype=np.float32)
-    y = np.zeros((num_tokens,), dtype=np.int)
+    if model_type=="classification":
+        y = np.zeros((num_tokens,), dtype=np.int)
+    else:
+        y = np.zeros((num_tokens,), dtype=np.float32)
 
     example_set = set()
 
@@ -292,13 +349,16 @@ def create_tensors(tokens, activations, task_specific_tag, mappings=None):
                 X[idx] = activations[instance_idx][token_idx, :]
 
             example_set.add(source_tokens[instance_idx][token_idx])
-            if (
-                mappings is not None
-                and target_tokens[instance_idx][token_idx] not in pos_idx
-            ):
-                y[idx] = pos_idx[task_specific_tag]
-            else:
-                y[idx] = pos_idx[target_tokens[instance_idx][token_idx]]
+            if model_type == "classification":
+                if (
+                    mappings is not None
+                    and target_tokens[instance_idx][token_idx] not in label2idx
+                ):
+                    y[idx] = label2idx[task_specific_tag]
+                else:
+                    y[idx] = label2idx[target_tokens[instance_idx][token_idx]]
+            elif model_type == "regression":
+                y[idx] = float(target_tokens[instance_idx][token_idx])
 
             idx += 1
 
@@ -306,7 +366,9 @@ def create_tensors(tokens, activations, task_specific_tag, mappings=None):
     print("Total instances: %d" % (num_tokens))
     print(list(example_set)[:20])
 
-    return X, y, (pos_idx, idx_pos, src_idx, idx_src)
+    if model_type == "classification":
+        return X, y, (label2idx, idx2label, src2idx, idx2src)
+    return X, y, (src2idx, idx2src)
 
 
 def filter_activations_by_layers(
