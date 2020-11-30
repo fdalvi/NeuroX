@@ -5,8 +5,6 @@ import h5py
 import numpy as np
 import torch
 
-from torch.utils.serialization import load_lua
-
 
 def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
     """Load extracted activations.
@@ -33,7 +31,9 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
     # Also ensure everything is on the CPU
     #   as activations may have been saved as CUDA variables
     if file_ext == "t7":
+        # t7 loading requires torch < 1.0
         print("Loading seq2seq-attn activations from %s..." % (activations_path))
+        from torch.utils.serialization import load_lua
         activations = load_lua(activations_path)["encodings"]
         activations = [a.cpu() for a in activations]
         num_layers = len(activations[0][0]) / num_neurons_per_layer
