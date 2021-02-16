@@ -243,7 +243,7 @@ def evaluate_model(
         else:
             # Classification
             _, predicted = torch.max(outputs.data, 1)
-
+        predicted = predicted.cpu().numpy()
         for i in range(0, len(predicted)):
             if source_tokens:
                 src_word = next(src_words)
