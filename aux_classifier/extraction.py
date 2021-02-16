@@ -21,6 +21,7 @@
 # Last Modified: 2 March, 2020
 # Last Modified: 9 September, 2020
 # Last Modified: 15 September, 2020
+# Last Modified: 1 February, 2020
 
 import argparse
 import collections
@@ -34,24 +35,12 @@ import h5py
 # sys.path.append("/export/work/static_embedding/software/transformers/src/")
 
 from tqdm import tqdm
-from transformers import (
-    XLNetTokenizer,
-    XLNetModel,
-    GPT2Tokenizer,
-    GPT2Model,
-    XLMTokenizer,
-    XLMModel,
-    BertTokenizer,
-    BertModel,
-    RobertaTokenizer,
-    RobertaModel,
-    DistilBertTokenizer,
-    DistilBertModel,
-)
+from transformers import AutoTokenizer, AutoModel
 
 ## Globals
 tokenization_counts = {}
 MAX_SEQ_LEN = 512
+
 
 def get_model_and_tokenizer(
     model_name, device="cpu", random_weights=False, model_path=None
@@ -65,51 +54,14 @@ def get_model_and_tokenizer(
         print("Initializing model from local path:", model_path)
         init_model = model_path
 
-    if model_name.startswith("xlnet"):
-        model = XLNetModel.from_pretrained(init_model, output_hidden_states=True).to(
-            device
-        )
-        tokenizer = XLNetTokenizer.from_pretrained(init_model)
-        sep = u"▁"
-    elif model_name.startswith("gpt2"):
-        model = GPT2Model.from_pretrained(init_model, output_hidden_states=True).to(
-            device
-        )
-        tokenizer = GPT2Tokenizer.from_pretrained(init_model)
-        sep = "Ġ"
-    elif model_name.startswith("xlm"):
-        model = XLMModel.from_pretrained(init_model, output_hidden_states=True).to(
-            device
-        )
-        tokenizer = XLMTokenizer.from_pretrained(init_model)
-        sep = "</w>"
-    elif model_name.startswith("bert"):
-        model = BertModel.from_pretrained(init_model, output_hidden_states=True).to(
-            device
-        )
-        tokenizer = BertTokenizer.from_pretrained(init_model)
-        sep = "##"
-    elif model_name.startswith("distilbert"):
-        model = DistilBertModel.from_pretrained(
-            init_model, output_hidden_states=True
-        ).to(device)
-        tokenizer = DistilBertTokenizer.from_pretrained(init_model)
-        sep = "##"
-    elif model_name.startswith("roberta"):
-        model = RobertaModel.from_pretrained(model_name, output_hidden_states=True).to(
-            device
-        )
-        tokenizer = RobertaTokenizer.from_pretrained(model_name)
-        sep = "Ġ"
-    else:
-        print("Unrecognized model name:", model_name)
-        sys.exit()
+    model = AutoModel.from_pretrained(init_model, output_hidden_states=True).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(init_model)
 
     if random_weights:
         print("Randomizing weights")
         model.init_weights()
 
-    return model, tokenizer, sep
+    return model, tokenizer
 
 
 # aggregate_repr
@@ -138,9 +90,9 @@ def aggregate_repr(state, start, end, aggregation):
     if aggregation == "first":
         return state[:, start, :]
     elif aggregation == "last":
-        return state[:, end, :]
+        return state[:, end - 1, :]
     elif aggregation == "average":
-        return np.average(state[:, start : end + 1, :], axis=1)
+        return np.average(state[:, start:end, :], axis=1)
 
 
 # this follows the HuggingFace API for pytorch-transformers
@@ -148,36 +100,40 @@ def get_sentence_repr(
     sentence,
     model,
     tokenizer,
-    sep,
-    model_name,
-    filter_vocab,
     device="cpu",
     include_embeddings=False,
     aggregation="last",
-    filter_words=["[CLS]", "[PAD]", "[SEP]"],
 ):
     """
     Get representations for one sentence
     """
 
-    special_tokens = [x for x in tokenizer.all_special_tokens if x != tokenizer.unk_token]
+    special_tokens = [
+        x for x in tokenizer.all_special_tokens if x != tokenizer.unk_token
+    ]
     special_tokens_ids = tokenizer.convert_tokens_to_ids(special_tokens)
 
-    original_tokens = sentence.split(' ')
-    # Add spaces before each word since some tokenizers are space sensitive
-    original_tokens = ['a' + ' ' + x if x_idx != 0 else x for x_idx, x in enumerate(original_tokens)]
+    original_tokens = sentence.split(" ")
+    # Add a letter and space before each word since some tokenizers are space sensitive
+    tmp_tokens = [
+        "a" + " " + x if x_idx != 0 else x for x_idx, x in enumerate(original_tokens)
+    ]
+    assert len(original_tokens) == len(tmp_tokens)
 
     with torch.no_grad():
         # Get tokenization counts if not already available
-        for token_idx, token in enumerate(original_tokens):
-            tok_ids = [x for x in tokenizer.encode(token) if x not in special_tokens_ids]
-            # print(tokenizer.convert_ids_to_tokens(tok_ids))
+        for token_idx, token in enumerate(tmp_tokens):
+            tok_ids = [
+                x for x in tokenizer.encode(token) if x not in special_tokens_ids
+            ]
             if token_idx != 0:
+                # Ignore the first token (added letter)
                 tok_ids = tok_ids[1:]
-                # print(tokenizer.convert_ids_to_tokens(tok_ids))
-            # print('------------')
+
             if token in tokenization_counts:
-                assert(tokenization_counts[token] == len(tok_ids))
+                assert tokenization_counts[token] == len(
+                    tok_ids
+                ), "Got different tokenization for already processed word"
             else:
                 tokenization_counts[token] = len(tok_ids)
         ids = tokenizer.encode(sentence, truncation=True, max_length=MAX_SEQ_LEN)
@@ -196,41 +152,49 @@ def get_sentence_repr(
             ]
         all_hidden_states = np.array(all_hidden_states)
 
-    print("Sentence          : \"%s\"" % (sentence))
+    print('Sentence         : "%s"' % (sentence))
     print("Original    (%03d): %s" % (len(original_tokens), original_tokens))
-    print("Tokenized   (%03d): %s" % (len(tokenizer.convert_ids_to_tokens(ids)), tokenizer.convert_ids_to_tokens(ids)))
-    
+    print(
+        "Tokenized   (%03d): %s"
+        % (
+            len(tokenizer.convert_ids_to_tokens(ids)),
+            tokenizer.convert_ids_to_tokens(ids),
+        )
+    )
+
     ids_without_special_tokens = [x for x in ids if x not in special_tokens_ids]
     segmented_tokens = tokenizer.convert_ids_to_tokens(ids_without_special_tokens)
 
     counter = 0
     detokenized = []
-    final_hidden_states = np.zeros((all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2]))
+    final_hidden_states = np.zeros(
+        (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2])
+    )
 
-    for token_idx, token in enumerate(original_tokens):
+    for token_idx, token in enumerate(tmp_tokens):
         current_word_start_idx = counter
         current_word_end_idx = counter + tokenization_counts[token]
         final_hidden_states[:, len(detokenized), :] = aggregate_repr(
-                        all_hidden_states,
-                        current_word_start_idx,
-                        current_word_end_idx,
-                        aggregation,
-                    )
-        detokenized.append("".join(segmented_tokens[current_word_start_idx:current_word_end_idx]))
-        
+            all_hidden_states, current_word_start_idx, current_word_end_idx, aggregation
+        )
+        detokenized.append(
+            "".join(segmented_tokens[current_word_start_idx:current_word_end_idx])
+        )
+
         counter += tokenization_counts[token]
 
     print("Detokenized (%03d): %s" % (len(detokenized), detokenized))
     print("Counter: %d" % (counter))
-    
+
     if len(ids) >= 512:
         print("[WARNING] Input truncated because of length, skipping check")
     else:
-        assert(counter == len(ids_without_special_tokens))
-        assert(len(detokenized) == len(original_tokens))
+        assert counter == len(ids_without_special_tokens)
+        assert len(detokenized) == len(original_tokens)
     print("===================================================================")
 
     return final_hidden_states, detokenized
+
 
 # from https://github.com/nelson-liu/contextual-repr-analysis
 def make_hdf5_file(sentence_to_index, vectors, output_file_path):
@@ -244,13 +208,21 @@ def make_hdf5_file(sentence_to_index, vectors, output_file_path):
         )
         sentence_index_dataset[0] = json.dumps(sentence_to_index)
 
-def extract_representations(model_name, input_corpus, output_file, device="cpu", aggregation="last", output_type="json", filter_vocab=None, model_path=None, limit_max_occurrences=-1, random_weights=False, ignore_embeddings=False):
+
+def extract_representations(
+    model_name,
+    input_corpus,
+    output_file,
+    device="cpu",
+    aggregation="last",
+    output_type="json",
+    model_path=None,
+    random_weights=False,
+    ignore_embeddings=False,
+):
     print("Loading model")
-    model, tokenizer, sep = get_model_and_tokenizer(
-        model_name,
-        device=device,
-        random_weights=random_weights,
-        model_path=model_path,
+    model, tokenizer = get_model_and_tokenizer(
+        model_name, device=device, random_weights=random_weights, model_path=model_path
     )
 
     print("Reading input corpus")
@@ -260,15 +232,6 @@ def extract_representations(model_name, input_corpus, output_file, device="cpu",
             for line in fp:
                 yield line.strip()
             return
-
-    print("Reading filter vocabulary")
-    filter_vocab = None
-    if filter_vocab:
-        filter_vocab = set()
-        with open(filter_vocab, "r") as fp:
-            for line in fp:
-                filter_vocab.add(line.strip().split()[0].lower())
-        print("Loaded %d words for vocabulary" % (len(filter_vocab)))
 
     print("Preparing output file")
     if output_type == "hdf5":
@@ -293,9 +256,6 @@ def extract_representations(model_name, input_corpus, output_file, device="cpu",
             sentence,
             model,
             tokenizer,
-            sep,
-            model_name,
-            filter_vocab,
             device=device,
             include_embeddings=(not ignore_embeddings),
             aggregation=aggregation,
@@ -357,10 +317,8 @@ def extract_representations(model_name, input_corpus, output_file, device="cpu",
     output_file.close()
 
 
-HDF5_SPECIAL_TOKENS = {
-    ".": "__DOT__",
-    "/": "__SLASH__"
-}
+HDF5_SPECIAL_TOKENS = {".": "__DOT__", "/": "__SLASH__"}
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -373,23 +331,12 @@ def main():
         help="Output file path where extracted representations will be stored",
     )
     parser.add_argument(
-        "--filter_vocab",
-        default=None,
-        help="Set of words for which the extraction should take place",
-    )
-    parser.add_argument(
         "--model_path", help="Local path to load custom model from", default=None
     )
     parser.add_argument(
         "--aggregation",
         help="first, last or average aggregation for word representation in the case of subword segmentation",
         default="last",
-    )
-    parser.add_argument(
-        "--limit-max-occurrences",
-        help="Limit the maximum number of occurrences saved for each word (Only supported in hdf5 format)",
-        default=-1,
-        type=int
     )
     parser.add_argument(
         "--output-type",
@@ -418,16 +365,18 @@ def main():
     else:
         device = torch.device("cpu")
 
-    extract_representations(args.model_name, args.input_corpus, args.output_file,
+    extract_representations(
+        args.model_name,
+        args.input_corpus,
+        args.output_file,
         device=device,
         aggregation=args.aggregation,
         output_type=args.output_type,
-        filter_vocab=args.filter_vocab,
         model_path=args.model_path,
-        limit_max_occurrences=args.limit_max_occurrences,
         random_weights=args.random_weights,
-        ignore_embeddings=args.ignore_embeddings)
-    
+        ignore_embeddings=args.ignore_embeddings,
+    )
+
 
 if __name__ == "__main__":
     main()
