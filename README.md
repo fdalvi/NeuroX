@@ -1,20 +1,50 @@
-# aux_classifier
+# NeuroX Toolkit
 
-Code to train classifier from activations extracted from https://github.com/fdalvi/nmt-shared-information.
+![logo](docs/intro/logo.png)
 
-## Options:
- - `--exp_type`: Possible choices: `word`, `charcnn`, `bpe_avg`, `bpe_last`, `char_avg`, `char_last`. bpe/char choices are for aggregating activations for subwords into a word activation.
- - `--train-source`: Path to train source word tokens file
- - `--train-labels`: Path to train labels file (one label per token)
- - `--train-activations`: Path to train activations file
- - `--test-source`: Path to test source word tokens file
- - `--test-labels`: Path to test labels file (one label per token)
- - `--test-activations`:  Path to test activations file
- - `--train-aux-source`: Path to bpe/char train files (if `exp_type` = `bpe*|char*`)
- - `--test-aux-source`: Path to bpe/char test files (if `exp_type` = `bpe*|char*`)
- - `--task-specific-tag`: Tag to assign for unknown words in the test set. For example, for POS, Noun tag is a good candidate for unknown words.
- - `--max-sent-l`: Max sentence length, should match what was used for preprocessing while training the seq2seq model
- - `--output-dir`: Output directory to store models, vocabs, predictions & results
- - `--filter-layers`: Train classifier with only a few layers. Specify layers as comma separated list. e.g. `f1,b2` (Forward layer 1, Backward Layer 2)
- - `--ignore-start-token`: Ignore the first token of every sentence in the source/source_aux/labels files
- - `--is-unidirectional`: Default: `false`. Specifies if the original MT model is unidirectional (or the analysis is decoder-side)
+NeuroX provide all the necessary tooling to perform Interpretation and Analysis of (Deep) Neural Networks centered around _Probing_. Specifically, the toolkit provides:
+
+- Support for extraction of activation from popular models including the entirety of [transformers](https://github.com/huggingface/transformers), with extended support for other models like [OpenNMT-py](https://github.com/OpenNMT/OpenNMT-py) planned in the near future
+- Support for training linear probes on top of these activations, on the entire activation space of a model, on specific layers, or even on specific set of neurons.
+- Support for neuron extraction related to specific concepts, using the _Linear Correlation Analysis_ method ([Paper et. al](...)). The toolkit can extract either a local ranking of neurons important to a particular target class, or a global ranking of neurons important to all the target classes.
+- Support for ablation analysis by either removing or zeroing out specific neurons to determine their function and importance.
+- Support for subword and character level aggregation across a variety of tokenizers, including BPE and all tokenizers in the [transformers](https://github.com/huggingface/transformers) library.
+- Support for activation visualization over regular text, to generate qualitative samples of neuron activity over particular sentences.
+
+[... Insert activation visualization ...]
+
+A demo using a lot of functionality provided by this toolkit [is available](https://neurox.qcri.org/demo).
+
+![demo picture](docs/intro/en-ar-NeuroX-demo.png)
+
+## Requirements
+A [Conda]() environment is provided with all the necessary dependencies for the toolkit. The toolkit primarily relies on PyTorch and NumPy for most of its operations. To create a new environment with all the dependencies, run:
+
+```bash
+conda install -f conda-environment.yml
+```
+
+## Getting Started
+A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in [examples/](examples/end-to-end-example.ipynb) for a quick introduction to the main functionality provided by this toolkit.
+
+## Docs
+[docs/README](docs/README.md) contains an API reference for all of the functions exposed by this toolkit. Primarily, the toolkit's functionality is separated into five components:
+
+1. Extraction
+2. Data Preprocessing
+3. Probing
+4. Neuron extraction and interpretation
+5. Visualization and analysis
+
+## Citation
+
+Please cite our paper published at AAAI'19 if you use this toolkit.
+
+```
+bib
+```
+
+## Planned features
+
+[ ] Support for OpenNMT-py models
+[ ] Support for control tasks and computing metrics like selectivity
