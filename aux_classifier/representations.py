@@ -1,6 +1,54 @@
 import numpy as np
 from tqdm import tqdm
 
+def removeUnderScore(tokens, activations):
+    all_activations = []
+    new_tokens = {
+        'source': [],
+        'head': [],
+        'target': []
+    }
+
+    for i in range(0, len(tokens['target'])):
+
+        new_activations = []
+        source = tokens['source'][i]
+        target = tokens['target'][i]
+        head = tokens['head'][i]
+        thisSource = []
+        thisTarget = []
+        thisHead = []
+        activation = activations[i]
+        count  = 0
+        #print ("Old")
+        #print (activation)
+        for j in range(0, len(target)):
+            if target[j] != "_":
+                thisSource.append(source[j])
+                thisTarget.append(target[j])
+                thisHead.append(head[j])
+                count = count + 1
+
+        #print (len(head), count)
+        thisSentence = np.zeros((count, activations[0][0].size), dtype=np.float32)
+        count = 0
+        for j in range(0, len(target)):
+            if target[j] != "_":
+                thisSentence[count, :] = activation[j]
+                count = count + 1               
+                
+        new_tokens['source'].append(thisSource)
+        new_tokens['target'].append(thisTarget)
+        new_tokens['head'].append(thisHead)
+        all_activations.append(thisSentence)
+        
+        #print ("New")
+        #print (thisSentence)
+        #print (activation.shape, thisSentence.shape)
+        #exit()
+    return new_tokens, all_activations
+
+
 def bpe_get_avg_activations(tokens, activations):
     all_activations = []
     num_neurons = activations[0].size(1)
