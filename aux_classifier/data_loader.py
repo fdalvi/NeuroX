@@ -291,8 +291,8 @@ def load_data(
     return tokens
 
 def load_data_rel(source_path, labels_path, head_path, activations, max_sent_l, ignore_start_token=False, sentence_classification=False):
- 
- """Load data for dependency relations.
+
+    """ Load data for dependency relations.
 
     Arguments:
     activations: Takes the activations file. Can be of type t7, pt, acts, json, hdf5
@@ -308,7 +308,6 @@ def load_data_rel(source_path, labels_path, head_path, activations, max_sent_l, 
         Divide again by 2 if model was bidirectional
     tokens (A dictionary of 3 lists): maintaining source tokens, labels and corresponding heads after checking for equal number of source/target/head words and corresponding activations
     """
-
     tokens = {
         'source': [],
         'head': [],
@@ -382,8 +381,8 @@ def load_data_rel(source_path, labels_path, head_path, activations, max_sent_l, 
     return tokens
 
 def load_aux_data_rel(source_path, labels_path, source_aux_path, head_path, activations, max_sent_l, ignore_start_token=False):
- 
- """Load data for dependency relations.
+
+    """Load data for dependency relations.
     
     This function is the same as load_aux_data except that it additionally loads sub-word/character segmented source file source_aux_path.
     The activations are extracted from the sub-word units which are merged through another function     
