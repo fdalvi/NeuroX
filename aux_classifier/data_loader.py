@@ -291,6 +291,24 @@ def load_data(
     return tokens
 
 def load_data_rel(source_path, labels_path, head_path, activations, max_sent_l, ignore_start_token=False, sentence_classification=False):
+ 
+ """Load data for dependency relations.
+
+    Arguments:
+    activations: Takes the activations file. Can be of type t7, pt, acts, json, hdf5
+    source_path: Path to the text file from which the activations are extracted
+    labels_path: Path to the label file corresponding to the source file
+    head_path:  Dependency labeling requires a head file which maintains indexes of where root/head of each word is
+    
+    Returns:
+    activations (list x numpy matrix): List of `sentence representations`, where each
+        `sentence representation` is a numpy matrix of shape
+        (num tokens in sentence x concatenated representation size)
+    num_layers (int): Number of layers. This is usually representation_size/num_neurons_per_layer.
+        Divide again by 2 if model was bidirectional
+    tokens (A dictionary of 3 lists): maintaining source tokens, labels and corresponding heads after checking for equal number of source/target/head words and corresponding activations
+    """
+
     tokens = {
         'source': [],
         'head': [],
@@ -364,6 +382,14 @@ def load_data_rel(source_path, labels_path, head_path, activations, max_sent_l, 
     return tokens
 
 def load_aux_data_rel(source_path, labels_path, source_aux_path, head_path, activations, max_sent_l, ignore_start_token=False):
+ 
+ """Load data for dependency relations.
+    
+    This function is the same as load_aux_data except that it additionally loads sub-word/character segmented source file source_aux_path.
+    The activations are extracted from the sub-word units which are merged through another function     
+
+    """
+
     tokens = {
         'source_aux': [],
         'source': [],

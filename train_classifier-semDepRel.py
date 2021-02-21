@@ -20,34 +20,6 @@ import aux_classifier.utils as utils
 import aux_classifier.representations as repr
 import aux_classifier.data_loader as data_loader
 
-def concatenateActivations (activations, tokens):
-
-    concatenatedActivations = []
-    concatSize = activations[0][0].size *2
-    for idx, activation in tqdm(enumerate(activations)):
-        thisHead = tokens['head'][idx]
-        thisSentence = np.zeros((len(thisHead), concatSize), dtype=np.float32)
-        #thisSentence = []
-        for w_idx, targetTag in enumerate(tokens['target'][idx]):
-            #print (idx, w_idx, head_train_tokens[idx])
-            #print (idx, w_idx, int(thisHead[w_idx])-1)
-            #print("First", train_activations[idx][w_idx])
-
-            if (int(thisHead[w_idx]) == 0):
-                #print("Second", train_activations[idx][w_idx])
-                temp = np.concatenate([activations[idx][w_idx], activations[idx][w_idx]])
-            else:
-                #print("Second", train_activations[idx][int(thisHead[w_idx])-1])
-                temp = np.concatenate([activations[idx][w_idx], activations[idx][int(thisHead[w_idx])-1]])
-
-            thisSentence[w_idx, :] = temp
-            
-
-            #print (idx, type(idx), w_idx, type(w_idx))
-            #print (train_activations[idx][w_idx].shape, temp.shape)
-        #print (thisSentence.shape, type(thisSentence))
-        concatenatedActivations.append(thisSentence)
-    return concatenatedActivations
 
 
 def load_data_and_train(train_source, train_aux_source, train_labels, train_head,train_activations,
@@ -108,8 +80,8 @@ def load_data_and_train(train_source, train_aux_source, train_labels, train_head
         print("Filtered number of neurons: %d" % (train_activations[0].shape[1]))
 
     print ("Concatenating Activations")
-    train_activations = concatenateActivations(train_activations, train_tokens)
-    test_activations = concatenateActivations(test_activations, test_tokens)
+    train_activations = repr.concatenateActivations(train_activations, train_tokens)
+    test_activations = repr.concatenateActivations(test_activations, test_tokens)
 
     if sem_dep_rel:
        train_tokens, train_activations = repr.removeUnderScore(train_tokens, train_activations)
