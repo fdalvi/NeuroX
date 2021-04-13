@@ -1,6 +1,93 @@
 import numpy as np
 from tqdm import tqdm
 
+
+def concatenateActivations (activations, tokens):
+
+    """Concatenate Activations
+
+    The function is used for concatenating activations for head word and its modifier. The concatenated activation file is later used to train a classifer
+
+    Arguments:
+    activations: Takes the activations file. Can be of type t7, pt, acts, json, hdf5
+    
+    Returns:
+    activations (list x numpy matrix): concatenatation of two activations 
+    
+    """
+
+    concatenatedActivations = []
+    concatSize = activations[0][0].size *2
+    for idx, activation in tqdm(enumerate(activations)):
+        thisHead = tokens['head'][idx]
+        thisSentence = np.zeros((len(thisHead), concatSize), dtype=np.float32)
+        
+        for w_idx, targetTag in enumerate(tokens['target'][idx]):
+            
+            if (int(thisHead[w_idx]) == 0):
+                temp = np.concatenate([activations[idx][w_idx], activations[idx][w_idx]])
+            else:
+                temp = np.concatenate([activations[idx][w_idx], activations[idx][int(thisHead[w_idx])-1]])
+
+            thisSentence[w_idx, :] = temp
+            
+        concatenatedActivations.append(thisSentence)
+    return concatenatedActivations
+
+
+def removeUnderScore(tokens, activations):
+
+    """remove under score
+
+    This is a utility function specific to semantic dependency classification task
+
+    Arguments:
+    activations: Takes the token dictionary and activations file. Can be of type t7, pt, acts, json, hdf5
+    
+    Returns:
+    activations (list x numpy matrix): modified token dictionary and activations  
+    
+    """
+
+    all_activations = []
+    new_tokens = {
+        'source': [],
+        'head': [],
+        'target': []
+    }
+
+    for i in range(0, len(tokens['target'])):
+
+        new_activations = []
+        source = tokens['source'][i]
+        target = tokens['target'][i]
+        head = tokens['head'][i]
+        thisSource = []
+        thisTarget = []
+        thisHead = []
+        activation = activations[i]
+        count  = 0
+        for j in range(0, len(target)):
+            if target[j] != "_":
+                thisSource.append(source[j])
+                thisTarget.append(target[j])
+                thisHead.append(head[j])
+                count = count + 1
+        thisSentence = np.zeros((count, activations[0][0].size), dtype=np.float32)
+        count = 0
+        for j in range(0, len(target)):
+            if target[j] != "_":
+                thisSentence[count, :] = activation[j]
+                count = count + 1               
+                
+        new_tokens['source'].append(thisSource)
+        new_tokens['target'].append(thisTarget)
+        new_tokens['head'].append(thisHead)
+        all_activations.append(thisSentence)
+        
+    return new_tokens, all_activations
+
+
 def bpe_get_avg_activations(tokens, activations):
     all_activations = []
     num_neurons = activations[0].size(1)
