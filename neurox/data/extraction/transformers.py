@@ -1,27 +1,16 @@
-## Script that takes input sentences, extracts activations [all layers] for all words
-# in a given vocab, aggregates activations over subwords, and saves all tokens with
-# their activations [N=occurrence of the word] in an hdf5 structure for efficient
-# retrieval
-#
-# HDF5 structure:
-# - tokens
-#    - token_1
-#        - 0 -> [13 * 768] matrix
-#        - 1 -> [13 * 768] matrix
-#    - token_2
-#        - 0 -> [13 * 768] matrix
-#        - 1 -> [13 * 768] matrix
-#        - 2 -> [13 * 768] matrix
-#        - 3 -> [13 * 768] matrix
-#
-# In the above case, `token_1` occurs 2 times in the dataset, and `token_2` occurs
-# 4 times. We have 13 layers from BERT and 768 dimensions from each layer
-#
-# Author: Fahim Dalvi
-# Last Modified: 2 March, 2020
-# Last Modified: 9 September, 2020
-# Last Modified: 15 September, 2020
-# Last Modified: 1 February, 2020
+"""Representations Extractor for ``transformers`` package.
+
+Script that given a file with input sentences and a ``transformers``
+model, extracts representations from all layers of the model. The script
+supports aggregation over sub-words created due to the tokenization of
+the provided model. 
+
+Author: Fahim Dalvi
+Last Modified: 2 March, 2020
+Last Modified: 9 September, 2020
+Last Modified: 15 September, 2020
+Last Modified: 1 February, 2020
+"""
 
 import argparse
 import collections
@@ -32,8 +21,6 @@ import numpy as np
 import torch
 import h5py
 
-# sys.path.append("/export/work/static_embedding/software/transformers/src/")
-
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel
 
@@ -42,20 +29,33 @@ tokenization_counts = {}
 MAX_SEQ_LEN = 512
 
 
-def get_model_and_tokenizer(
-    model_name, device="cpu", random_weights=False, model_path=None
-):
+def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     """
-    model_path: if given, initialize from path instead of official repo
+    Automatically get the appropriate ``transformers`` model and tokenizer based
+    on the model description
+
+    Parameters
+    ----------
+    model_desc : str
+        Model description; can either be a model name like ``bert-base-uncased``
+        or a path to a trained model
+    
+    device : str, optional
+        Device to load the model on, cpu or gpu. Default is cpu.
+
+    random_weights : bool, optional
+        Whether the weights of the model should be randomized. Useful for analyses
+        where one needs an untrained model.
+
+    Returns
+    -------
+    model : transformers model
+        An instance of one of the transformers.modeling classes
+    tokenizer : transformers tokenizer
+        An instance of one of the transformers.tokenization classes
     """
-
-    init_model = model_name
-    if model_path:
-        print("Initializing model from local path:", model_path)
-        init_model = model_path
-
-    model = AutoModel.from_pretrained(init_model, output_hidden_states=True).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(init_model)
+    model = AutoModel.from_pretrained(model_desc, output_hidden_states=True).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(model_desc)
 
     if random_weights:
         print("Randomizing weights")
@@ -64,49 +64,60 @@ def get_model_and_tokenizer(
     return model, tokenizer
 
 
-# aggregate_repr
-# Function that aggregates activations/embeddings over a span of subword tokens
-#
-# Parameters:
-#  state: Matrix of size [ NUM_LAYERS x NUM_SUBWORD_TOKENS_IN_SENT x LAYER_DIM]
-#  start: index of the first subword of the word being processed
-#  end: index of the last subword of the word being processed
-#  aggregation: aggregation method
-#
-# Returns:
-#  word_vector: Matrix of size [NUM_LAYERS x LAYER_DIM]
-#
-# This function will be called once per word. For example, if we had the sentence:
-#   "This is an example"
-# Tokenized by BPE:
-#   "this is an ex @@am @@ple"
-#
-# The function will be called 4 times:
-#   aggregate_repr(state, 0, 0, aggregation)
-#   aggregate_repr(state, 1, 1, aggregation)
-#   aggregate_repr(state, 2, 2, aggregation)
-#   aggregate_repr(state, 3, 5, aggregation)
 def aggregate_repr(state, start, end, aggregation):
+    """
+    Function that aggregates activations/embeddings over a span of subword tokens.
+    This function will usually be called once per word. For example, if we had the sentence::
+
+        This is an example
+
+    which is tokenized by BPE into::
+
+        this is an ex @@am @@ple
+
+    The function should be called 4 times::
+
+        aggregate_repr(state, 0, 0, aggregation)
+        aggregate_repr(state, 1, 1, aggregation)
+        aggregate_repr(state, 2, 2, aggregation)
+        aggregate_repr(state, 3, 5, aggregation)
+    
+    Parameters
+    ----------
+    state : numpy.ndarray
+        Matrix of size [ NUM_LAYERS x NUM_SUBWORD_TOKENS_IN_SENT x LAYER_DIM]
+    start : int
+        Index of the first subword of the word being processed
+    end : int
+        Index of the last subword of the word being processed
+    aggregation : {'first', 'last', 'average'}
+        Aggregation method for combining subword activations
+
+    Returns
+    -------
+    word_vector : numpy. ndarray
+        Matrix of size [NUM_LAYERS x LAYER_DIM]
+    """
     if aggregation == "first":
         return state[:, start, :]
     elif aggregation == "last":
-        return state[:, end - 1, :]
+        return state[:, end, :]
     elif aggregation == "average":
-        return np.average(state[:, start:end, :], axis=1)
+        return np.average(state[:, start : end + 1, :], axis=1)
 
 
-# this follows the HuggingFace API for pytorch-transformers
-def get_sentence_repr(
+def extract_sentence_representations(
     sentence,
     model,
     tokenizer,
     device="cpu",
-    include_embeddings=False,
+    include_embeddings=True,
     aggregation="last",
 ):
     """
     Get representations for one sentence
     """
+    # this follows the HuggingFace API for transformers
 
     special_tokens = [
         x for x in tokenizer.all_special_tokens if x != tokenizer.unk_token
@@ -148,7 +159,7 @@ def get_sentence_repr(
         else:
             all_hidden_states = [
                 hidden_states[0].cpu().numpy()
-                for hidden_states in all_hidden_states[:-1]
+                for hidden_states in all_hidden_states[:-1]  # TODO test this
             ]
         all_hidden_states = np.array(all_hidden_states)
 
@@ -162,9 +173,25 @@ def get_sentence_repr(
         )
     )
 
+    # Remove special tokens
     ids_without_special_tokens = [x for x in ids if x not in special_tokens_ids]
-    segmented_tokens = tokenizer.convert_ids_to_tokens(ids_without_special_tokens)
+    idx_without_special_tokens = [
+        t_i for t_i, x in enumerate(ids) if x not in special_tokens_ids
+    ]
+    filtered_ids = [ids[t_i] for t_i in idx_without_special_tokens]
+    assert all_hidden_states.shape[1] == len(ids)
+    all_hidden_states = all_hidden_states[:, idx_without_special_tokens, :]
+    assert all_hidden_states.shape[1] == len(filtered_ids)
+    print(
+        "Filtered   (%03d): %s"
+        % (
+            len(tokenizer.convert_ids_to_tokens(filtered_ids)),
+            tokenizer.convert_ids_to_tokens(filtered_ids),
+        )
+    )
+    segmented_tokens = tokenizer.convert_ids_to_tokens(filtered_ids)
 
+    # Perform actual subword aggregation/detokenization
     counter = 0
     detokenized = []
     final_hidden_states = np.zeros(
@@ -175,12 +202,14 @@ def get_sentence_repr(
         current_word_start_idx = counter
         current_word_end_idx = counter + tokenization_counts[token]
         final_hidden_states[:, len(detokenized), :] = aggregate_repr(
-            all_hidden_states, current_word_start_idx, current_word_end_idx, aggregation
+            all_hidden_states,
+            current_word_start_idx,
+            current_word_end_idx - 1,
+            aggregation,
         )
         detokenized.append(
             "".join(segmented_tokens[current_word_start_idx:current_word_end_idx])
         )
-
         counter += tokenization_counts[token]
 
     print("Detokenized (%03d): %s" % (len(detokenized), detokenized))
@@ -196,33 +225,19 @@ def get_sentence_repr(
     return final_hidden_states, detokenized
 
 
-# from https://github.com/nelson-liu/contextual-repr-analysis
-def make_hdf5_file(sentence_to_index, vectors, output_file_path):
-    with h5py.File(output_file_path, "w") as fout:
-        for key, embeddings in vectors.items():
-            fout.create_dataset(
-                str(key), embeddings.shape, dtype="float32", data=embeddings
-            )
-        sentence_index_dataset = fout.create_dataset(
-            "sentence_to_index", (1,), dtype=h5py.special_dtype(vlen=str)
-        )
-        sentence_index_dataset[0] = json.dumps(sentence_to_index)
-
-
 def extract_representations(
-    model_name,
+    model_desc,
     input_corpus,
     output_file,
     device="cpu",
     aggregation="last",
     output_type="json",
-    model_path=None,
     random_weights=False,
     ignore_embeddings=False,
 ):
-    print("Loading model")
+    print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
-        model_name, device=device, random_weights=random_weights, model_path=model_path
+        model_desc, device=device, random_weights=random_weights
     )
 
     print("Reading input corpus")
@@ -241,7 +256,7 @@ def extract_representations(
                 % (output_file)
             )
         output_file = h5py.File(output_file, "w")
-        output_file.create_group("tokens")
+        sentence_to_index = {}
     elif output_type == "json":
         if not output_file.endswith(".json"):
             print(
@@ -252,7 +267,7 @@ def extract_representations(
 
     print("Extracting representations from model")
     for sentence_idx, sentence in enumerate(corpus_generator(input_corpus)):
-        hidden_states, extracted_words = get_sentence_repr(
+        hidden_states, extracted_words = extract_sentence_representations(
             sentence,
             model,
             tokenizer,
@@ -265,33 +280,20 @@ def extract_representations(
         print("# Extracted words: ", len(extracted_words))
 
         if output_type == "hdf5":
-            for idx, extracted_word in enumerate(extracted_words):
-                if extracted_word in HDF5_SPECIAL_TOKENS:
-                    extracted_word = HDF5_SPECIAL_TOKENS[extracted_word]
-                hdf5_path = "tokens/%s" % (extracted_word)
-                if hdf5_path not in output_file:
-                    word_idx = 0
-                else:
-                    word_idx = len(output_file[hdf5_path].keys())
-                hdf5_path = "tokens/%s/%d" % (extracted_word, word_idx)
-                print("hdf5 path:", hdf5_path)
-
-                if limit_max_occurrences >= 0 and word_idx >= limit_max_occurrences:
-                    print("Skipping because of occurrence limit")
-                    continue
-
-                assert hdf5_path not in output_file
-                if decompose_layers:
-                    for layer_idx in range(13):
-                        dset = output_file.create_dataset(
-                            hdf5_path + "/%d" % (layer_idx), (768,), dtype="f"
-                        )
-                        dset[...] = hidden_states[layer_idx, idx, :]
-                    output_file[hdf5_path].attrs["context"] = sentence
-                else:
-                    dset = output_file.create_dataset(hdf5_path, (13, 768), dtype="f")
-                    dset[...] = hidden_states[:, idx, :]
-                    dset.attrs["context"] = sentence
+            output_file.create_dataset(
+                str(sentence_idx),
+                hidden_states.shape,
+                dtype="float32",
+                data=hidden_states,
+            )
+            # TODO: Replace with better implementation with list of indices
+            final_sentence = sentence
+            counter = 1
+            while final_sentence in sentence_to_index:
+                counter += 1
+                final_sentence = f"{sentence} (Occurrence {counter})"
+            sentence = final_sentence
+            sentence_to_index[sentence] = str(sentence_idx)
         elif output_type == "json":
             output_json = collections.OrderedDict()
             output_json["linex_index"] = sentence_idx
@@ -314,6 +316,12 @@ def extract_representations(
             output_json["features"] = all_out_features
             output_file.write(json.dumps(output_json) + "\n")
 
+    if output_type == "hdf5":
+        sentence_index_dataset = output_file.create_dataset(
+            "sentence_to_index", (1,), dtype=h5py.special_dtype(vlen=str)
+        )
+        sentence_index_dataset[0] = json.dumps(sentence_to_index)
+
     output_file.close()
 
 
@@ -322,16 +330,13 @@ HDF5_SPECIAL_TOKENS = {".": "__DOT__", "/": "__SLASH__"}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("model_name", help="Name of model")
+    parser.add_argument("model_desc", help="Name of model")
     parser.add_argument(
         "input_corpus", help="Text file path with one sentence per line"
     )
     parser.add_argument(
         "output_file",
         help="Output file path where extracted representations will be stored",
-    )
-    parser.add_argument(
-        "--model_path", help="Local path to load custom model from", default=None
     )
     parser.add_argument(
         "--aggregation",
@@ -344,7 +349,6 @@ def main():
         default="json",
         help="Output format of the extracted representations",
     )
-    parser.add_argument("--decompose_layers", action="store_true")
     parser.add_argument("--disable_cuda", action="store_true")
     parser.add_argument("--ignore_embeddings", action="store_true")
     parser.add_argument(
@@ -366,13 +370,12 @@ def main():
         device = torch.device("cpu")
 
     extract_representations(
-        args.model_name,
+        args.model_desc,
         args.input_corpus,
         args.output_file,
         device=device,
         aggregation=args.aggregation,
         output_type=args.output_type,
-        model_path=args.model_path,
         random_weights=args.random_weights,
         ignore_embeddings=args.ignore_embeddings,
     )
