@@ -25,6 +25,7 @@ class TestTransformersExtractorAggregation(unittest.TestCase):
         pass
 
     def test_aggregate_repr_first(self):
+        "First subword aggregation"
         self.assertTrue(
             np.array_equal(
                 self.state[:, 0, :].squeeze(),
@@ -45,6 +46,7 @@ class TestTransformersExtractorAggregation(unittest.TestCase):
         )
 
     def test_aggregate_repr_last(self):
+        "Last subword aggregation"
         self.assertTrue(
             np.array_equal(
                 self.state[:, 2, :].squeeze(),
@@ -65,6 +67,7 @@ class TestTransformersExtractorAggregation(unittest.TestCase):
         )
 
     def test_aggregate_repr_average(self):
+        "Average subword aggregation"
         self.assertTrue(
             np.array_equal(
                 np.average(self.state[:, 0:3, :], axis=1),
@@ -103,17 +106,18 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
     @patch('transformers.tokenization_bert.BertTokenizer')
     @patch('transformers.modeling_bert.BertModel')
     def test_extract_sentence_representations(self, model_mock, tokenizer_mock):
+        "Extraction"
         # Input format is "TOKEN_{num_subwords}"
         # UNK is used when num_subwords == 0
         sentences = [
-            ["TOKEN_1"], # Single token sentence without any subwords
-            ["TOKEN_1", "TOKEN_1"], # Multi token sentence without any subwords
-            ["SUBTOKEN_2", "TOKEN_1"], # Subword token in the beginning
-            ["STOKEN_1", "SUBTOKEN_2", "ETOKEN_1"], # Subword token in the middle
-            ["TOKEN_1", "SUBTOKEN_2"], # Subword token in the middle
-            ["SOMETHING_2", "TOKEN_4"], # Multiple subword tokens with unknown token
-            ["TOKEN_2", "TOKEN_2", "TOKEN_0"], # Multiple subword tokens with unknown token
-            ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"], # All unks
+            ( ["TOKEN_1"], "Single token sentence without any subwords" ),
+            ( ["TOKEN_1", "TOKEN_1"], "Multi token sentence without any subwords" ),
+            ( ["SUBTOKEN_2", "TOKEN_1"], "Subword token in the beginning" ),
+            ( ["STOKEN_1", "SUBTOKEN_2", "ETOKEN_1"], "Subword token in the middle" ),
+            ( ["TOKEN_1", "SUBTOKEN_2"], "Subword token in the middle" ),
+            ( ["SOMETHING_2", "TOKEN_4"], "Multiple subword tokens with unknown token" ),
+            ( ["TOKEN_2", "TOKEN_2", "TOKEN_0"], "Multiple subword tokens with unknown token" ),
+            ( ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"], "All unks" ),
         ]
 
         # Create mock model and tokenizer
@@ -141,7 +145,7 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
                         subwords.append(f'@@{actual_word}_{o_idx+1}')
                 return subwords
 
-        for sentence in sentences:
+        for sentence, _ in sentences:
             for word in sentence:
                 for subword in word_to_subwords(word):
                     if subword not in tokenization_mapping:
@@ -168,7 +172,7 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
         # Build Expected outputs
         model_mock_outputs = []
         expected_outputs = []
-        for sentence in sentences:
+        for sentence, _ in sentences:
             counter = 0
             model_mock_output = {k: [] for k in range(self.num_layers)}
             expected_output = {k: [] for k in range(self.num_layers)}
@@ -207,8 +211,8 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
             model_mock_outputs.append(model_mock_output)
             expected_outputs.append(expected_output)
 
-        for sentence_idx, sentence in enumerate(sentences):
-            with self.subTest(i=sentence_idx):
+        for sentence_idx, (sentence, test_desc) in enumerate(sentences):
+            with self.subTest(test_desc):
                 model_mock.return_value = ("placeholder", model_mock_outputs[sentence_idx])
 
                 words = sentence
