@@ -3,12 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import torch
-import random
 
 import neurox.data.extraction.transformers as transformers_extractor
 
 
-class TestTransformersExtractorAggregation(unittest.TestCase):
+class TestAggregation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # State is 3 layers, 4 tokens, 2 features per token
@@ -87,38 +86,27 @@ class TestTransformersExtractorAggregation(unittest.TestCase):
             )
         )
 
-class TestTransformersExtractorExtraction(unittest.TestCase):
+class TestExtraction(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    @patch('transformers.tokenization_bert.BertTokenizer')
+    @patch('transformers.modeling_bert.BertModel')
+    def setUpClass(cls, model_mock, tokenizer_mock):
         cls.num_layers = 13
         cls.num_neurons_per_layer = 768
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    @patch('transformers.tokenization_bert.BertTokenizer')
-    @patch('transformers.modeling_bert.BertModel')
-    def test_extract_sentence_representations(self, model_mock, tokenizer_mock):
-        "Extraction"
         # Input format is "TOKEN_{num_subwords}"
         # UNK is used when num_subwords == 0
         sentences = [
-            ( ["TOKEN_1"], "Single token sentence without any subwords" ),
-            ( ["TOKEN_1", "TOKEN_1"], "Multi token sentence without any subwords" ),
-            ( ["SUBTOKEN_2", "TOKEN_1"], "Subword token in the beginning" ),
-            ( ["STOKEN_1", "SUBTOKEN_2", "ETOKEN_1"], "Subword token in the middle" ),
-            ( ["TOKEN_1", "SUBTOKEN_2"], "Subword token in the middle" ),
-            ( ["SOMETHING_2", "TOKEN_4"], "Multiple subword tokens with unknown token" ),
-            ( ["TOKEN_2", "TOKEN_2", "TOKEN_0"], "Multiple subword tokens with unknown token" ),
-            ( ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"], "All unks" ),
+            ( "Single token sentence without any subwords", ["TOKEN_1"] ),
+            ( "Multi token sentence without any subwords", ["TOKEN_1", "TOKEN_1"] ),
+            ( "Subword token in the beginning", ["SUBTOKEN_2", "TOKEN_1"] ),
+            ( "Subword token in the middle", ["STOKEN_1", "SUBTOKEN_2", "ETOKEN_1"] ),
+            ( "Subword token in the end", ["TOKEN_1", "SUBTOKEN_2"] ),
+            ( "Multiple subword tokens", ["SOMETHING_2", "TOKEN_4"] ),
+            ( "Multiple subword tokens with unknown token", ["TOKEN_2", "TOKEN_2", "TOKEN_0"] ),
+            ( "All unknown tokens", ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"] ),
         ]
+        cls.tests_data = []
 
         # Create mock model and tokenizer
         model_mock = MagicMock()
@@ -145,7 +133,7 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
                         subwords.append(f'@@{actual_word}_{o_idx+1}')
                 return subwords
 
-        for sentence, _ in sentences:
+        for _, sentence in sentences:
             for word in sentence:
                 for subword in word_to_subwords(word):
                     if subword not in tokenization_mapping:
@@ -170,18 +158,21 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
         tokenizer_mock.encode.side_effect = encode_side_effect
 
         # Build Expected outputs
-        model_mock_outputs = []
-        expected_outputs = []
-        for sentence, _ in sentences:
+        for test_description, sentence in sentences:
             counter = 0
-            model_mock_output = {k: [] for k in range(self.num_layers)}
-            expected_output = {k: [] for k in range(self.num_layers)}
+            model_mock_output = {k: [] for k in range(cls.num_layers)}
+            first_expected_output = {k: [] for k in range(cls.num_layers)}
+            last_expected_output = {k: [] for k in range(cls.num_layers)}
+            average_expected_output = {k: [] for k in range(cls.num_layers)}
+
             idx = [counter]
             tokenized_sentence = ["[CLS]"]
             for k in model_mock_output:
-                tmp = torch.rand((1, self.num_neurons_per_layer))
+                tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
-                expected_output[k].append(tmp[0,:])
+                first_expected_output[k].append(tmp[0,:])
+                last_expected_output[k].append(tmp[0,:])
+                average_expected_output[k].append(tmp[0,:])
             counter += 1
             
             for w in sentence:
@@ -191,44 +182,164 @@ class TestTransformersExtractorExtraction(unittest.TestCase):
                 tokenized_sentence.extend(subwords)
 
                 for k in model_mock_output:
-                    tmp = torch.rand((len(subwords), self.num_neurons_per_layer))
+                    tmp = torch.rand((len(subwords), cls.num_neurons_per_layer))
                     model_mock_output[k].append(tmp)
-                    expected_output[k].append(tmp.mean(axis=0))
+                    first_expected_output[k].append(tmp[0,:]) # Pick first subword idx
+                    last_expected_output[k].append(tmp[-1,:]) # Pick last subword idx
+                    average_expected_output[k].append(tmp.mean(axis=0))
 
             idx.append(counter)    
             tokenized_sentence.append("[SEP]")
             for k in model_mock_output:
-                tmp = torch.rand((1, self.num_neurons_per_layer))
+                tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
-                expected_output[k].append(tmp[0,:])
+                first_expected_output[k].append(tmp[0,:])
+                last_expected_output[k].append(tmp[0,:])
+                average_expected_output[k].append(tmp[0,:])
             
             counter += 1
 
-            model_mock_output = tuple([torch.cat(model_mock_output[k]).unsqueeze(0) for k in range(self.num_layers)])
-            expected_output = tuple([torch.stack(expected_output[k]) for k in range(self.num_layers)])
-            print(expected_output[0].shape)
+            model_mock_output = tuple([torch.cat(model_mock_output[k]).unsqueeze(0) for k in range(cls.num_layers)])
+            first_expected_output = tuple([torch.stack(first_expected_output[k]) for k in range(cls.num_layers)])
+            last_expected_output = tuple([torch.stack(last_expected_output[k]) for k in range(cls.num_layers)])
+            average_expected_output = tuple([torch.stack(average_expected_output[k]) for k in range(cls.num_layers)])
 
-            model_mock_outputs.append(model_mock_output)
-            expected_outputs.append(expected_output)
+            cls.tests_data.append((
+                test_description,
+                sentence,
+                model_mock_output,
+                first_expected_output,
+                last_expected_output,
+                average_expected_output
+            ))
 
-        for sentence_idx, (sentence, test_desc) in enumerate(sentences):
-            with self.subTest(test_desc):
-                model_mock.return_value = ("placeholder", model_mock_outputs[sentence_idx])
+        cls.model = model_mock
+        cls.tokenizer = tokenizer_mock
+        
 
-                words = sentence
-                hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(words), model_mock, tokenizer_mock, aggregation="average")
-                self.assertEqual(
-                    len(extracted_words), len(words)
-                )
-                self.assertEqual(
-                    hidden_states.shape[1], len(words)
-                )
+    @classmethod
+    def tearDownClass(cls):
+        pass
 
-                print(hidden_states.shape)
-                # Test output from all layers
-                for l in range(self.num_layers):
-                    np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_outputs[sentence_idx][l][1:-1, :].numpy())
+    def setUp(self):
+        pass
 
+    def tearDown(self):
+        pass
+
+    def run_test(self, testcase, **kwargs):
+        _, sentence, model_mock_output, first_expected_output, last_expected_output, average_expected_output = testcase
+        if kwargs['aggregation'] == "first":
+            expected_output = first_expected_output
+        if kwargs['aggregation'] == "last":
+            expected_output = last_expected_output
+        if kwargs['aggregation'] == "average":
+            expected_output = average_expected_output
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        words = sentence
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(words), self.model, self.tokenizer, **kwargs)
+        self.assertEqual(
+            len(extracted_words), len(words)
+        )
+        self.assertEqual(
+            hidden_states.shape[1], len(words)
+        )
+
+        # Test output from all layers
+        for l in range(self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][1:-1, :].numpy())
+
+    ########################### First tests ############################
+    def test_extract_sentence_representations_first_aggregation_multiple_token(self):
+        "First aggregation: Multi token sentence without any subwords"
+        self.run_test(self.tests_data[1], aggregation="first")
+    
+    def test_extract_sentence_representations_first_aggregation_subword_begin(self):
+        "First aggregation: Subword token in the beginning"
+        self.run_test(self.tests_data[2], aggregation="first")
+    
+    def test_extract_sentence_representations_first_aggregation_subword_middle(self):
+        "First aggregation: Subword token in the middle"
+        self.run_test(self.tests_data[3], aggregation="first")
+
+    def test_extract_sentence_representations_first_aggregation_subword_end(self):
+        "First aggregation: Subword token in the end"
+        self.run_test(self.tests_data[4], aggregation="first")
+    
+    def test_extract_sentence_representations_first_aggregation_mutliple_subwords(self):
+        "First aggregation: Multiple subword tokens"
+        self.run_test(self.tests_data[5], aggregation="first")
+    
+    def test_extract_sentence_representations_first_aggregation_mutliple_subwords_with_unk(self):
+        "First aggregation: Multiple subword tokens with unknown token"
+        self.run_test(self.tests_data[6], aggregation="first")
+    
+    def test_extract_sentence_representations_first_aggregation_all_unk(self):
+        "First aggregation: All unknown tokens"
+        self.run_test(self.tests_data[7], aggregation="first")
+    
+    ############################ Last tests ############################
+    def test_extract_sentence_representations_last_aggregation_multiple_token(self):
+        "Last aggregation: Multi token sentence without any subwords"
+        self.run_test(self.tests_data[1], aggregation="last")
+    
+    def test_extract_sentence_representations_last_aggregation_subword_begin(self):
+        "Last aggregation: Subword token in the beginning"
+        self.run_test(self.tests_data[2], aggregation="last")
+    
+    def test_extract_sentence_representations_last_aggregation_subword_middle(self):
+        "Last aggregation: Subword token in the middle"
+        self.run_test(self.tests_data[3], aggregation="last")
+
+    def test_extract_sentence_representations_last_aggregation_subword_end(self):
+        "Last aggregation: Subword token in the end"
+        self.run_test(self.tests_data[4], aggregation="last")
+    
+    def test_extract_sentence_representations_last_aggregation_mutliple_subwords(self):
+        "Last aggregation: Multiple subword tokens"
+        self.run_test(self.tests_data[5], aggregation="last")
+    
+    def test_extract_sentence_representations_last_aggregation_mutliple_subwords_with_unk(self):
+        "Last aggregation: Multiple subword tokens with unknown token"
+        self.run_test(self.tests_data[6], aggregation="last")
+    
+    def test_extract_sentence_representations_last_aggregation_all_unk(self):
+        "Last aggregation: All unknown tokens"
+        self.run_test(self.tests_data[7], aggregation="last")
+    
+    ########################## Average tests ###########################
+    def test_extract_sentence_representations_average_aggregation_single_token(self):
+        "Average aggregation: Single token sentence without any subwords"
+        self.run_test(self.tests_data[0], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_multiple_token(self):
+        "Average aggregation: Multi token sentence without any subwords"
+        self.run_test(self.tests_data[1], aggregation="average")
+    
+    def test_extract_sentence_representations_average_aggregation_subword_begin(self):
+        "Average aggregation: Subword token in the beginning"
+        self.run_test(self.tests_data[2], aggregation="average")
+    
+    def test_extract_sentence_representations_average_aggregation_subword_middle(self):
+        "Average aggregation: Subword token in the middle"
+        self.run_test(self.tests_data[3], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_subword_end(self):
+        "Average aggregation: Subword token in the end"
+        self.run_test(self.tests_data[4], aggregation="average")
+    
+    def test_extract_sentence_representations_average_aggregation_mutliple_subwords(self):
+        "Average aggregation: Multiple subword tokens"
+        self.run_test(self.tests_data[5], aggregation="average")
+    
+    def test_extract_sentence_representations_average_aggregation_mutliple_subwords_with_unk(self):
+        "Average aggregation: Multiple subword tokens with unknown token"
+        self.run_test(self.tests_data[6], aggregation="average")
+    
+    def test_extract_sentence_representations_average_aggregation_all_unk(self):
+        "Average aggregation: All unknown tokens"
+        self.run_test(self.tests_data[7], aggregation="average")
 
 if __name__ == "__main__":
     unittest.main()
