@@ -142,7 +142,7 @@ def load_aux_data(
     sentences longer than the provided maximum. The activations will be modified
     in place.
 
-    .. DANGER::
+    .. warning::
         This function is deprecated and will be removed in future versions.
 
     Parameters
@@ -152,6 +152,8 @@ def load_aux_data(
     labels_path : str
         Path to the annotated labels file, one sentence per line corresponding to
         the sentences in the ``source_path`` file.
+    source_aux_path : str
+        Path to the source text file with tokenization, one sentence per line
     activations : list of numpy.ndarray
         Activations returned from ``loader.load_activations``
     max_sent_l : int
@@ -164,9 +166,11 @@ def load_aux_data(
     Returns
     -------
     tokens : dict
-        Dictionary containing two lists, ``source`` and ``target``. ``source``
-        contains all of the sentences from ``source_path`` that were not ignored.
-        ``target`` contains the parallel set of annotated labels.
+        Dictionary containing three lists, ``source``, ``source_aux`` and
+        ``target``. ``source`` contains all of the sentences from``source_path``
+        that were not ignored. ``source_aux`` contains all tokenized sentences
+        from ``source_aux_path``. ``target`` contains the parallel set of
+        annotated labels.
     """
     tokens = {"source_aux": [], "source": [], "target": []}
 
