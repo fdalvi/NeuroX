@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 
-def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
+def load_activations(activations_path, num_neurons_per_layer=None, is_brnn=False):
     """Load extracted activations.
 
     Arguments:
@@ -33,7 +33,11 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
     if file_ext == "t7":
         # t7 loading requires torch < 1.0
         print("Loading seq2seq-attn activations from %s..." % (activations_path))
+        assert (
+            num_neurons_per_layer is not None
+        ), "t7 activations require num_neurons_per_layer"
         from torch.utils.serialization import load_lua
+
         activations = load_lua(activations_path)["encodings"]
         activations = [a.cpu() for a in activations]
         num_layers = len(activations[0][0]) / num_neurons_per_layer
@@ -41,6 +45,9 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
             num_layers /= 2
     elif file_ext == "pt":
         print("Loading OpenNMT-py activations from %s..." % (activations_path))
+        assert (
+            num_neurons_per_layer is not None
+        ), "pt activations require num_neurons_per_layer"
         activations = torch.load(activations_path)
         activations = [
             torch.stack([torch.cat(token) for token in sentence]).cpu()
@@ -49,6 +56,9 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         num_layers = len(activations[0][0]) / num_neurons_per_layer
     elif file_ext == "acts":
         print("Loading generic activations from %s..." % (activations_path))
+        assert (
+            num_neurons_per_layer is not None
+        ), "acts activations require num_neurons_per_layer"
         with open(activations_path, "rb") as activations_file:
             activations = pickle.load(activations_file)
 
@@ -69,6 +79,7 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         representations = h5py.File(activations_path, "r")
         sentence_to_index = json.loads(representations.get("sentence_to_index")[0])
         activations = []
+        # TODO: Check order
         for _, value in sentence_to_index.items():
             sentence_acts = torch.FloatTensor(representations[value])
             num_layers, sentence_length, embedding_size = (
@@ -76,6 +87,7 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
                 sentence_acts.shape[1],
                 sentence_acts.shape[2],
             )
+            num_neurons_per_layer = embedding_size
             sentence_acts = np.swapaxes(sentence_acts, 0, 1)
             sentence_acts = sentence_acts.reshape(
                 sentence_length, num_layers * embedding_size
@@ -88,15 +100,18 @@ def load_activations(activations_path, num_neurons_per_layer, is_brnn=True):
         with open(activations_path) as fp:
             for line in fp:
                 token_acts = []
-                sentence_activations = json.loads(line)['features']
+                sentence_activations = json.loads(line)["features"]
                 for act in sentence_activations:
-                    token_acts.append(np.concatenate([l['values'] for l in act['layers']]))
+                    num_neurons_per_layer = len(act["layers"][0]["values"])
+                    token_acts.append(
+                        np.concatenate([l["values"] for l in act["layers"]])
+                    )
                 activations.append(np.vstack(token_acts))
 
         num_layers = activations[0].shape[1] / num_neurons_per_layer
         print(len(activations), num_layers)
     else:
-        assert False, "Activations must be of type t7, pt, acts or hdf5"
+        assert False, "Activations must be of type t7, pt, acts, json or hdf5"
 
     return activations, int(num_layers)
 
