@@ -9,18 +9,25 @@ import torch
 def load_activations(activations_path, num_neurons_per_layer=None, is_brnn=False):
     """Load extracted activations.
 
-    Arguments:
-    activations_path (str): Path to the activations file. Can be of type t7, pt, acts
-    num_neurons_per_layer (int): Number of neurons per layer - used to compute total
-        number of layers.
-    is_brnn (bool): If the model used to extract activations was bidirectional (default: True)
+    Parameters
+    ----------
+    activations_path : str
+        Path to the activations file. Can be of type t7, pt, acts, json or hdf5
+    num_neurons_per_layer : int, optional
+        Number of neurons per layer - used to compute total number of layers.
+        This is only necessary in the case of t7/p5/acts activations.
+    is_brnn : bool, optional
+        If the model used to extract activations was bidirectional (default: False)
 
-    Returns:
-    activations (list x numpy matrix): List of `sentence representations`, where each
-        `sentence representation` is a numpy matrix of shape
-        (num tokens in sentence x concatenated representation size)
-    num_layers (int): Number of layers. This is usually representation_size/num_neurons_per_layer.
+    Returns
+    -------
+    activations : list of numpy.ndarray
+        List of *sentence representations*, where each *sentence representation*
+        is a numpy matrix of shape ``[num tokens in sentence x concatenated representation size]``
+    num_layers : int
+        Number of layers. This is usually representation_size/num_neurons_per_layer.
         Divide again by 2 if model was bidirectional
+
     """
     file_ext = activations_path.split(".")[-1]
 
@@ -124,6 +131,43 @@ def load_aux_data(
     max_sent_l,
     ignore_start_token=False,
 ):
+    """Load word-annotated text-label pairs data represented as sentences, where
+    activation extraction was performed on tokenized text. This function loads
+    the source text, source tokenized text, target labels, and activations and
+    tries to make them perfectly parallel, i.e. number of tokens in line N of
+    source would match the number of tokens in line N of target, and number of
+    tokens in source_aux will match the number of activations at index N.
+    The method will delete non-matching activation/source/source_aix/target
+    pairs, up to a maximum of 100 before failing. The method will also ignore
+    sentences longer than the provided maximum. The activations will be modified
+    in place.
+
+    .. DANGER::
+        This function is deprecated and will be removed in future versions.
+
+    Parameters
+    ----------
+    source_path : str
+        Path to the source text file, one sentence per line
+    labels_path : str
+        Path to the annotated labels file, one sentence per line corresponding to
+        the sentences in the ``source_path`` file.
+    activations : list of numpy.ndarray
+        Activations returned from ``loader.load_activations``
+    max_sent_l : int
+        Maximum length of sentences. Sentences containing more tokens will be
+        ignored.
+    ignore_start_token : bool, optional
+        Ignore the first token. Useful if there is some line position markers
+        in the source text.
+
+    Returns
+    -------
+    tokens : dict
+        Dictionary containing two lists, ``source`` and ``target``. ``source``
+        contains all of the sentences from ``source_path`` that were not ignored.
+        ``target`` contains the parallel set of annotated labels.
+    """
     tokens = {"source_aux": [], "source": [], "target": []}
 
     skipped_lines = set()
@@ -197,8 +241,10 @@ def load_aux_data(
                 ),
             )
 
-    assert len(invalid_activation_idx) < 100, \
-        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!" % (len(invalid_activation_idx))
+    assert len(invalid_activation_idx) < 100, (
+        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!"
+        % (len(invalid_activation_idx))
+    )
 
     for num_deleted, idx in enumerate(invalid_activation_idx):
         print(
@@ -231,6 +277,43 @@ def load_data(
     ignore_start_token=False,
     sentence_classification=False,
 ):
+    """Load word-annotated text-label pairs data represented as sentences. This
+    function loads the source text, target labels, and activations and tries to
+    make them perfectly parallel, i.e. number of tokens in line N of source would
+    match the number of tokens in line N of target, and also match the number of
+    activations at index N. The method will delete non-matching activation/source/target
+    pairs, up to a maximum of 100 before failing. The method will also ignore
+    sentences longer than the provided maximum. The activations will be modified
+    in place.
+
+    Parameters
+    ----------
+    source_path : str
+        Path to the source text file, one sentence per line
+    labels_path : str
+        Path to the annotated labels file, one sentence per line corresponding to
+        the sentences in the ``source_path`` file.
+    activations : list of numpy.ndarray
+        Activations returned from ``loader.load_activations``
+    max_sent_l : int
+        Maximum length of sentences. Sentences containing more tokens will be
+        ignored.
+    ignore_start_token : bool, optional
+        Ignore the first token. Useful if there is some line position markers
+        in the source text.
+    sentence_classification : bool, optional
+        Flag to indicate if this is a sentence classification task, where every
+        sentence actually has only a single activation (e.g. [CLS] token's
+        activations in the case of BERT)
+
+    Returns
+    -------
+    tokens : dict
+        Dictionary containing two lists, ``source`` and ``target``. ``source``
+        contains all of the sentences from ``source_path`` that were not ignored.
+        ``target`` contains the parallel set of annotated labels.
+
+    """
     tokens = {"source": [], "target": []}
 
     with open(source_path) as source_fp:
@@ -282,8 +365,10 @@ def load_data(
                 )
             )
 
-    assert len(invalid_activation_idx) < 100, \
-        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!" % (len(invalid_activation_idx))
+    assert len(invalid_activation_idx) < 100, (
+        "Too many mismatches (%d) - your paths are probably incorrect or something is wrong in the data!"
+        % (len(invalid_activation_idx))
+    )
 
     for num_deleted, idx in enumerate(invalid_activation_idx):
         print(
@@ -304,13 +389,36 @@ def load_data(
         if not sentence_classification:
             assert activation.shape[0] == len(tokens["target"][idx])
 
+    # TODO: Return activations
     return tokens
 
-def load_sentence_data(
-    source_path,
-    labels_path,
-    activations
-):
+
+def load_sentence_data(source_path, labels_path, activations):
+    """Loads sentence-annotated text-label pairs. This function loads the source
+    text, target labels, and activations and tries to make them perfectly
+    parallel, i.e. number of tokens in line N of source would
+    match the number of activations at index N. The method will delete
+    non-matching activation/source pairs. The activations will be modified
+    in place.
+
+    Parameters
+    ----------
+    source_path : str
+        Path to the source text file, one sentence per line
+    labels_path : str
+        Path to the annotated labels file, one sentence per line corresponding to
+        the sentences in the ``source_path`` file.
+    activations : list of numpy.ndarray
+        Activations returned from ``loader.load_activations``
+
+    Returns
+    -------
+    tokens : dict
+        Dictionary containing two lists, ``source`` and ``target``. ``source``
+        contains all of the sentences from ``source_path`` that were not ignored.
+        ``target`` contains the parallel set of annotated labels.
+
+    """
     tokens = {"source": [], "target": []}
 
     with open(source_path) as source_fp:
@@ -334,7 +442,6 @@ def load_sentence_data(
 
     # Check if all data is well formed (whether we have activations + labels for
     # each and every word)
-    invalid_activation_idx = []
     for idx, activation in enumerate(activations):
         assert activation.shape[0] == len(tokens["source"][idx])
 
