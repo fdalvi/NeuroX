@@ -1,3 +1,8 @@
+"""Loading functions for activations, input tokens/sentences and labels
+
+This module contains functions to load activations as well as source files with
+tokens and labels. Functions that support tokenized data are also provided.
+"""
 import pickle
 import json
 

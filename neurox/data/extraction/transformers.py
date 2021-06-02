@@ -1,4 +1,4 @@
-"""Representations Extractor for ``transformers`` package.
+"""Representations Extractor for ``transformers`` toolkit models.
 
 Script that given a file with input sentences and a ``transformers``
 model, extracts representations from all layers of the model. The script
