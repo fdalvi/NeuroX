@@ -400,6 +400,32 @@ class TestExtraction(unittest.TestCase):
         "Average aggregation: Special token in the end that is dropped by tokenizer in context"
         self.run_test(self.tests_data[11], aggregation="average")
 
+    ############################# Embedding tests ##############################
+    def test_extract_sentence_representations_include_embeddings(self):
+        "Extraction with embedding layer"
+        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[1]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer, include_embeddings=True)
+
+        self.assertEqual(hidden_states.shape[0], self.num_layers)
+
+        for l in range(self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][1:-1, :].numpy())
+
+    def test_extract_sentence_representations_exclude_embeddings(self):
+        "Extraction without embedding layer"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[1]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer, include_embeddings=False)
+
+        self.assertEqual(hidden_states.shape[0], self.num_layers - 1)
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l-1,:,:], expected_output[l][1:-1, :].numpy())
+
+
 class TestModelAndTokenizerGetter(unittest.TestCase):
     @patch('transformers.AutoTokenizer.from_pretrained')
     @patch('transformers.AutoModel.from_pretrained')

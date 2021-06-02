@@ -158,9 +158,10 @@ def extract_sentence_representations(
                 tokenization_counts[token] = len(tok_ids)
         ids = tokenizer.encode(sentence, truncation=True, max_length=MAX_SEQ_LEN)
         input_ids = torch.tensor([ids]).to(device)
-        # Hugging Face format: list of torch.FloatTensor of shape (batch_size, sequence_length, hidden_size) (hidden_states at output of each layer plus initial embedding outputs)
+        # Hugging Face format: tuple of torch.FloatTensor of shape (batch_size, sequence_length, hidden_size)
+        # Tuple has 13 elements for base model: embedding outputs + hidden states at each layer
         all_hidden_states = model(input_ids)[-1]
-        # convert to format required for contexteval: numpy array of shape (num_layers, sequence_length, representation_dim)
+
         if include_embeddings:
             all_hidden_states = [
                 hidden_states[0].cpu().numpy() for hidden_states in all_hidden_states
@@ -168,7 +169,7 @@ def extract_sentence_representations(
         else:
             all_hidden_states = [
                 hidden_states[0].cpu().numpy()
-                for hidden_states in all_hidden_states[:-1]  # TODO test this
+                for hidden_states in all_hidden_states[1:]
             ]
         all_hidden_states = np.array(all_hidden_states)
 
