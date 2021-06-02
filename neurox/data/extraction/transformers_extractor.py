@@ -3,7 +3,7 @@
 Script that given a file with input sentences and a ``transformers``
 model, extracts representations from all layers of the model. The script
 supports aggregation over sub-words created due to the tokenization of
-the provided model. 
+the provided model.
 
 Author: Fahim Dalvi
 Last Modified: 2 March, 2020
@@ -39,7 +39,7 @@ def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     model_desc : str
         Model description; can either be a model name like ``bert-base-uncased``
         or a path to a trained model
-    
+
     device : str, optional
         Device to load the model on, cpu or gpu. Default is cpu.
 
@@ -81,7 +81,10 @@ def aggregate_repr(state, start, end, aggregation):
         aggregate_repr(state, 1, 1, aggregation)
         aggregate_repr(state, 2, 2, aggregation)
         aggregate_repr(state, 3, 5, aggregation)
-    
+
+    Returns a zero vector if end is less than start, i.e. the request is to
+    aggregate over an empty slice.
+
     Parameters
     ----------
     state : numpy.ndarray
@@ -95,9 +98,15 @@ def aggregate_repr(state, start, end, aggregation):
 
     Returns
     -------
-    word_vector : numpy. ndarray
+    word_vector : numpy.ndarray
         Matrix of size [NUM_LAYERS x LAYER_DIM]
     """
+    if end < start:
+        sys.stderr.write("WARNING: An empty slice of tokens was encountered. " +
+            "This probably implies a special unicode character or text " +
+            "encoding issue in your original data that was dropped by the " +
+            "transformer model's tokenizer.\n")
+        return np.zeros((state.shape[0], state.shape[2]))
     if aggregation == "first":
         return state[:, start, :]
     elif aggregation == "last":

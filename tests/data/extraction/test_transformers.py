@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import torch
 
-import neurox.data.extraction.transformers as transformers_extractor
+import neurox.data.extraction.transformers_extractor as transformers_extractor
 
 
 class TestAggregation(unittest.TestCase):
@@ -96,6 +96,7 @@ class TestExtraction(unittest.TestCase):
 
         # Input format is "TOKEN_{num_subwords}"
         # UNK is used when num_subwords == 0
+        # Token is dropped completely when num_subwords < 0
         sentences = [
             ( "Single token sentence without any subwords", ["TOKEN_1"] ),
             ( "Multi token sentence without any subwords", ["TOKEN_1", "TOKEN_1"] ),
@@ -105,6 +106,11 @@ class TestExtraction(unittest.TestCase):
             ( "Multiple subword tokens", ["SOMETHING_2", "TOKEN_4"] ),
             ( "Multiple subword tokens with unknown token", ["TOKEN_2", "TOKEN_2", "TOKEN_0"] ),
             ( "All unknown tokens", ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"] ),
+            ( "Special token that is dropped by tokenizer", ["DISAPPEAR_-1"] ),
+            ( "Special token in the beginning that is dropped by tokenizer in context", ["DISAPPEAR_-1", "SOMETHING_2"] ),
+            ( "Special token in the middle that is dropped by tokenizer in context", ["SOMETHING_2", "DISAPPEAR_-1", "ANOTHER_4"] ),
+            ( "Special token in the end that is dropped by tokenizer in context", ["SOMETHING_3", "DISAPPEAR_-1"] ),
+
         ]
         cls.tests_data = []
 
@@ -124,6 +130,8 @@ class TestExtraction(unittest.TestCase):
             occurrence = int(occurrence)
             if occurrence == 0:
                 return [tokenizer_mock.unk_token]
+            elif occurrence < 0:
+                return []
             else:
                 subwords = []
                 for o_idx in range(occurrence):
@@ -138,9 +146,9 @@ class TestExtraction(unittest.TestCase):
                 for subword in word_to_subwords(word):
                     if subword not in tokenization_mapping:
                         tokenization_mapping[subword] = len(tokenization_mapping)
-                
+
         inverse_tokenization_mapping = {v: k for k,v in tokenization_mapping.items()}
-        
+
         def tokenization_side_effect(arg):
             return [tokenization_mapping[w] for w in arg]
         tokenizer_mock.convert_tokens_to_ids.side_effect = tokenization_side_effect
@@ -174,7 +182,7 @@ class TestExtraction(unittest.TestCase):
                 last_expected_output[k].append(tmp[0,:])
                 average_expected_output[k].append(tmp[0,:])
             counter += 1
-            
+
             for w in sentence:
                 idx.append(counter)
                 subwords = word_to_subwords(w)
@@ -182,13 +190,16 @@ class TestExtraction(unittest.TestCase):
                 tokenized_sentence.extend(subwords)
 
                 for k in model_mock_output:
-                    tmp = torch.rand((len(subwords), cls.num_neurons_per_layer))
-                    model_mock_output[k].append(tmp)
+                    if len(subwords) > 0:
+                        tmp = torch.rand((len(subwords), cls.num_neurons_per_layer))
+                        model_mock_output[k].append(tmp)
+                    else:
+                        tmp = torch.zeros((1, cls.num_neurons_per_layer))
                     first_expected_output[k].append(tmp[0,:]) # Pick first subword idx
                     last_expected_output[k].append(tmp[-1,:]) # Pick last subword idx
                     average_expected_output[k].append(tmp.mean(axis=0))
 
-            idx.append(counter)    
+            idx.append(counter)
             tokenized_sentence.append("[SEP]")
             for k in model_mock_output:
                 tmp = torch.rand((1, cls.num_neurons_per_layer))
@@ -196,7 +207,7 @@ class TestExtraction(unittest.TestCase):
                 first_expected_output[k].append(tmp[0,:])
                 last_expected_output[k].append(tmp[0,:])
                 average_expected_output[k].append(tmp[0,:])
-            
+
             counter += 1
 
             model_mock_output = tuple([torch.cat(model_mock_output[k]).unsqueeze(0) for k in range(cls.num_layers)])
@@ -215,7 +226,7 @@ class TestExtraction(unittest.TestCase):
 
         cls.model = model_mock
         cls.tokenizer = tokenizer_mock
-        
+
 
     @classmethod
     def tearDownClass(cls):
@@ -254,11 +265,11 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_first_aggregation_multiple_token(self):
         "First aggregation: Multi token sentence without any subwords"
         self.run_test(self.tests_data[1], aggregation="first")
-    
+
     def test_extract_sentence_representations_first_aggregation_subword_begin(self):
         "First aggregation: Subword token in the beginning"
         self.run_test(self.tests_data[2], aggregation="first")
-    
+
     def test_extract_sentence_representations_first_aggregation_subword_middle(self):
         "First aggregation: Subword token in the middle"
         self.run_test(self.tests_data[3], aggregation="first")
@@ -266,28 +277,44 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_first_aggregation_subword_end(self):
         "First aggregation: Subword token in the end"
         self.run_test(self.tests_data[4], aggregation="first")
-    
+
     def test_extract_sentence_representations_first_aggregation_mutliple_subwords(self):
         "First aggregation: Multiple subword tokens"
         self.run_test(self.tests_data[5], aggregation="first")
-    
+
     def test_extract_sentence_representations_first_aggregation_mutliple_subwords_with_unk(self):
         "First aggregation: Multiple subword tokens with unknown token"
         self.run_test(self.tests_data[6], aggregation="first")
-    
+
     def test_extract_sentence_representations_first_aggregation_all_unk(self):
         "First aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="first")
-    
+
+    def test_extract_sentence_representations_first_aggregation_special_dropped_token(self):
+        "First aggregation: Special token that is dropped by tokenizer"
+        self.run_test(self.tests_data[8], aggregation="first")
+
+    def test_extract_sentence_representations_first_aggregation_special_dropped_token_beginning(self):
+        "First aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[9], aggregation="first")
+
+    def test_extract_sentence_representations_first_aggregation_special_dropped_token_middle(self):
+        "First aggregation: Special token in the middle that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[10], aggregation="first")
+
+    def test_extract_sentence_representations_first_aggregation_special_dropped_token_end(self):
+        "First aggregation: Special token in the end that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[11], aggregation="first")
+
     ############################ Last tests ############################
     def test_extract_sentence_representations_last_aggregation_multiple_token(self):
         "Last aggregation: Multi token sentence without any subwords"
         self.run_test(self.tests_data[1], aggregation="last")
-    
+
     def test_extract_sentence_representations_last_aggregation_subword_begin(self):
         "Last aggregation: Subword token in the beginning"
         self.run_test(self.tests_data[2], aggregation="last")
-    
+
     def test_extract_sentence_representations_last_aggregation_subword_middle(self):
         "Last aggregation: Subword token in the middle"
         self.run_test(self.tests_data[3], aggregation="last")
@@ -295,19 +322,35 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_last_aggregation_subword_end(self):
         "Last aggregation: Subword token in the end"
         self.run_test(self.tests_data[4], aggregation="last")
-    
+
     def test_extract_sentence_representations_last_aggregation_mutliple_subwords(self):
         "Last aggregation: Multiple subword tokens"
         self.run_test(self.tests_data[5], aggregation="last")
-    
+
     def test_extract_sentence_representations_last_aggregation_mutliple_subwords_with_unk(self):
         "Last aggregation: Multiple subword tokens with unknown token"
         self.run_test(self.tests_data[6], aggregation="last")
-    
+
     def test_extract_sentence_representations_last_aggregation_all_unk(self):
         "Last aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="last")
-    
+
+    def test_extract_sentence_representations_last_aggregation_special_dropped_token(self):
+        "Last aggregation: Special token that is dropped by tokenizer"
+        self.run_test(self.tests_data[8], aggregation="last")
+
+    def test_extract_sentence_representations_last_aggregation_special_dropped_token_beginning(self):
+        "Last aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[9], aggregation="last")
+
+    def test_extract_sentence_representations_last_aggregation_special_dropped_token_middle(self):
+        "Last aggregation: Special token in the middle that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[10], aggregation="last")
+
+    def test_extract_sentence_representations_last_aggregation_special_dropped_token_end(self):
+        "Last aggregation: Special token in the end that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[11], aggregation="last")
+
     ########################## Average tests ###########################
     def test_extract_sentence_representations_average_aggregation_single_token(self):
         "Average aggregation: Single token sentence without any subwords"
@@ -316,11 +359,11 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_average_aggregation_multiple_token(self):
         "Average aggregation: Multi token sentence without any subwords"
         self.run_test(self.tests_data[1], aggregation="average")
-    
+
     def test_extract_sentence_representations_average_aggregation_subword_begin(self):
         "Average aggregation: Subword token in the beginning"
         self.run_test(self.tests_data[2], aggregation="average")
-    
+
     def test_extract_sentence_representations_average_aggregation_subword_middle(self):
         "Average aggregation: Subword token in the middle"
         self.run_test(self.tests_data[3], aggregation="average")
@@ -328,18 +371,60 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_average_aggregation_subword_end(self):
         "Average aggregation: Subword token in the end"
         self.run_test(self.tests_data[4], aggregation="average")
-    
+
     def test_extract_sentence_representations_average_aggregation_mutliple_subwords(self):
         "Average aggregation: Multiple subword tokens"
         self.run_test(self.tests_data[5], aggregation="average")
-    
+
     def test_extract_sentence_representations_average_aggregation_mutliple_subwords_with_unk(self):
         "Average aggregation: Multiple subword tokens with unknown token"
         self.run_test(self.tests_data[6], aggregation="average")
-    
+
     def test_extract_sentence_representations_average_aggregation_all_unk(self):
         "Average aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_special_dropped_token(self):
+        "Average aggregation: Special token that is dropped by tokenizer"
+        self.run_test(self.tests_data[8], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_special_dropped_token_beginning(self):
+        "Average aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[9], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_special_dropped_token_middle(self):
+        "Average aggregation: Special token in the middle that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[10], aggregation="average")
+
+    def test_extract_sentence_representations_average_aggregation_special_dropped_token_end(self):
+        "Average aggregation: Special token in the end that is dropped by tokenizer in context"
+        self.run_test(self.tests_data[11], aggregation="average")
+
+class TestModelAndTokenizerGetter(unittest.TestCase):
+    @patch('transformers.AutoTokenizer.from_pretrained')
+    @patch('transformers.AutoModel.from_pretrained')
+    def test_get_model_and_tokenizer_normal(self, auto_model_mock, auto_tokenizer_mock):
+        """Normal model and tokenizer loading test"""
+
+        expected_model = torch.rand((5,2))
+        expected_tokenizer = torch.rand((5,))
+        auto_model_mock.return_value = expected_model
+        auto_tokenizer_mock.return_value = expected_tokenizer
+
+        model, tokenizer = transformers_extractor.get_model_and_tokenizer("non-existent model")
+
+        self.assertTrue(torch.equal(model, expected_model))
+        self.assertTrue(torch.equal(tokenizer, expected_tokenizer))
+
+    @patch('transformers.AutoTokenizer.from_pretrained')
+    @patch('transformers.AutoModel.from_pretrained')
+    def test_get_model_and_tokenizer_simple(self, auto_model_mock, auto_tokenizer_mock):
+        """Randomized model and tokenizer loading test"""
+
+        transformers_extractor.get_model_and_tokenizer("non-existent model", random_weights=True)
+
+        auto_model_mock.return_value.to.return_value.init_weights.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
