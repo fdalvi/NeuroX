@@ -26,7 +26,6 @@ from transformers import AutoTokenizer, AutoModel
 
 ## Globals
 tokenization_counts = {}
-MAX_SEQ_LEN = 512
 
 
 def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
@@ -156,7 +155,7 @@ def extract_sentence_representations(
                 ), "Got different tokenization for already processed word"
             else:
                 tokenization_counts[token] = len(tok_ids)
-        ids = tokenizer.encode(sentence, truncation=True, max_length=MAX_SEQ_LEN)
+        ids = tokenizer.encode(sentence, truncation=True)
         input_ids = torch.tensor([ids]).to(device)
         # Hugging Face format: tuple of torch.FloatTensor of shape (batch_size, sequence_length, hidden_size)
         # Tuple has 13 elements for base model: embedding outputs + hidden states at each layer
@@ -207,10 +206,20 @@ def extract_sentence_representations(
     final_hidden_states = np.zeros(
         (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2])
     )
+    inputs_truncated = False
 
     for token_idx, token in enumerate(tmp_tokens):
         current_word_start_idx = counter
         current_word_end_idx = counter + tokenization_counts[token]
+
+        # Check for truncated hidden states in the case where the
+        # original word was actually tokenized
+        if  (tokenization_counts[token] != 0 and current_word_start_idx >= all_hidden_states.shape[1]) \
+                or current_word_end_idx > all_hidden_states.shape[1]:
+            final_hidden_states = final_hidden_states[:, :len(detokenized), :]
+            inputs_truncated = True
+            break
+
         final_hidden_states[:, len(detokenized), :] = aggregate_repr(
             all_hidden_states,
             current_word_start_idx,
@@ -225,8 +234,8 @@ def extract_sentence_representations(
     print("Detokenized (%03d): %s" % (len(detokenized), detokenized))
     print("Counter: %d" % (counter))
 
-    if len(ids) >= 512:
-        print("[WARNING] Input truncated because of length, skipping check")
+    if inputs_truncated:
+        print("WARNING: Input truncated because of length, skipping check")
     else:
         assert counter == len(ids_without_special_tokens)
         assert len(detokenized) == len(original_tokens)

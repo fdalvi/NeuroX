@@ -1,4 +1,6 @@
 import unittest
+
+from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -110,6 +112,12 @@ class TestExtraction(unittest.TestCase):
             ( "Special token in the beginning that is dropped by tokenizer in context", ["DISAPPEAR_-1", "SOMETHING_2"] ),
             ( "Special token in the middle that is dropped by tokenizer in context", ["SOMETHING_2", "DISAPPEAR_-1", "ANOTHER_4"] ),
             ( "Special token in the end that is dropped by tokenizer in context", ["SOMETHING_3", "DISAPPEAR_-1"] ),
+            ( "Input longer than tokenizer's limit", ["SOMETHING_100", "ANOTHER_300", "MIDDLE_110", "FINAL_100"] ),
+            ( "Input exactly equal to tokenizer's limit", ["SOMETHING_100", "ANOTHER_300", "FINAL_110"] ),
+            ( "Input longer than tokenizer's limit with break in the middle of tokenization", ["SOMETHING_100", "ANOTHER_300", "FINAL_200"] ),
+            ( "Input exactly equal to tokenizer's limit with dropped token", ["SOMETHING_100", "ANOTHER_300", "FINAL_110", "DISAPPEAR_-1"] ),
+            ( "Input longer than tokenizer's limit with break at dropped token", ["SOMETHING_100", "ANOTHER_300", "MIDDLE_110", "DISAPPEAR_-1", "FINAL_100"] ),
+            ( "Input longer than tokenizer's limit with dropped token", ["SOMETHING_100", "DISAPPEAR_-1", "ANOTHER_300", "MIDDLE_110", "FINAL_100"] ),
 
         ]
         cls.tests_data = []
@@ -119,6 +127,7 @@ class TestExtraction(unittest.TestCase):
         tokenizer_mock = MagicMock()
         tokenizer_mock.all_special_tokens = ["[CLS]", "[UNK]", "[SEP]"]
         tokenizer_mock.unk_token = "[UNK]"
+        tokenizer_mock.model_max_length = 512
 
         tokenization_mapping = {k: i for i, k in enumerate(tokenizer_mock.all_special_tokens)}
         tokenization_mapping['a'] = len(tokenization_mapping)
@@ -150,10 +159,16 @@ class TestExtraction(unittest.TestCase):
         inverse_tokenization_mapping = {v: k for k,v in tokenization_mapping.items()}
 
         def tokenization_side_effect(arg):
+            # Truncate input at 512 tokens
+            arg = arg[:512]
+
             return [tokenization_mapping[w] for w in arg]
         tokenizer_mock.convert_tokens_to_ids.side_effect = tokenization_side_effect
 
         def inverse_tokenization_side_effect(arg):
+            # Truncate input at 512 tokens
+            arg = arg[:512]
+
             return [inverse_tokenization_mapping[i] for i in arg]
         tokenizer_mock.convert_ids_to_tokens.side_effect = inverse_tokenization_side_effect
 
@@ -162,6 +177,7 @@ class TestExtraction(unittest.TestCase):
             for w in arg.split(' '):
                 tokenized_sentence.extend(word_to_subwords(w))
             tokenized_sentence.append("[SEP]")
+
             return tokenization_side_effect(tokenized_sentence)
         tokenizer_mock.encode.side_effect = encode_side_effect
 
@@ -178,9 +194,7 @@ class TestExtraction(unittest.TestCase):
             for k in model_mock_output:
                 tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
-                first_expected_output[k].append(tmp[0,:])
-                last_expected_output[k].append(tmp[0,:])
-                average_expected_output[k].append(tmp[0,:])
+
             counter += 1
 
             for w in sentence:
@@ -190,23 +204,38 @@ class TestExtraction(unittest.TestCase):
                 tokenized_sentence.extend(subwords)
 
                 for k in model_mock_output:
-                    if len(subwords) > 0:
-                        tmp = torch.rand((len(subwords), cls.num_neurons_per_layer))
+                    num_subtokens = len(subwords)
+                    # Account for truncation in the middle of tokenization
+                    num_extra_tokens = len(tokenized_sentence) - (tokenizer_mock.model_max_length - 1)
+                    if num_extra_tokens > 0:
+                        num_subtokens -= num_extra_tokens
+
+                    # Output is zero array if the number of subwords is 0, i.e.
+                    # a token dropped by the tokenizer
+                    if num_subtokens > 0:
+                        tmp = torch.rand((num_subtokens, cls.num_neurons_per_layer))
                         model_mock_output[k].append(tmp)
                     else:
                         tmp = torch.zeros((1, cls.num_neurons_per_layer))
+
+                    # Check if input is too long already (and account
+                    # for [SEP] token)
+                    if len(tokenized_sentence) > (tokenizer_mock.model_max_length - 1):
+                        continue
                     first_expected_output[k].append(tmp[0,:]) # Pick first subword idx
                     last_expected_output[k].append(tmp[-1,:]) # Pick last subword idx
                     average_expected_output[k].append(tmp.mean(axis=0))
+
+                # Check if input is too long already (and account
+                # for [SEP] token)
+                if len(tokenized_sentence) > (tokenizer_mock.model_max_length - 1):
+                    break
 
             idx.append(counter)
             tokenized_sentence.append("[SEP]")
             for k in model_mock_output:
                 tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
-                first_expected_output[k].append(tmp[0,:])
-                last_expected_output[k].append(tmp[0,:])
-                average_expected_output[k].append(tmp[0,:])
 
             counter += 1
 
@@ -259,7 +288,7 @@ class TestExtraction(unittest.TestCase):
 
         # Test output from all layers
         for l in range(self.num_layers):
-            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][1:-1, :].numpy())
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
 
     ########################### First tests ############################
     def test_extract_sentence_representations_first_aggregation_multiple_token(self):
@@ -411,7 +440,7 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual(hidden_states.shape[0], self.num_layers)
 
         for l in range(self.num_layers):
-            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][1:-1, :].numpy())
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
 
     def test_extract_sentence_representations_exclude_embeddings(self):
         "Extraction without embedding layer"
@@ -423,7 +452,83 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual(hidden_states.shape[0], self.num_layers - 1)
 
         for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(hidden_states[l-1,:,:], expected_output[l][1:-1, :].numpy())
+            np.testing.assert_array_almost_equal(hidden_states[l-1,:,:], expected_output[l][:, :].numpy())
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_extract_sentence_representations_long_input(self, mock_stdout):
+        "Input longer than tokenizer's limit"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[12]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
+
+    def test_extract_sentence_representations_long_input_exact_length(self):
+        "Input exactly equal to tokenizer's limit"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[13]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        # self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_extract_sentence_representations_long_input_tokenization_break(self, mock_stdout):
+        "Input longer than tokenizer's limit with break in the middle of tokenization"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[14]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
+
+    def test_extract_sentence_representations_long_input_exact_length_dropped_token(self):
+        "Input exactly equal to tokenizer's limit with dropped token"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[15]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        # self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_extract_sentence_representations_long_input_dropped_token_break(self, mock_stdout):
+        "Input longer than tokenizer's limit with break at dropped token"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[16]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
+
+    @patch('sys.stdout', new_callable=StringIO)
+    def test_extract_sentence_representations_long_input_dropped_token(self, mock_stdout):
+        "Input longer than tokenizer's limit with dropped token"
+        _, sentence, model_mock_output, _, expected_output , _  = self.tests_data[17]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        hidden_states, extracted_words = transformers_extractor.extract_sentence_representations(" ".join(sentence), self.model, self.tokenizer)
+
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(hidden_states[l,:,:], expected_output[l][:, :].numpy())
 
 
 class TestModelAndTokenizerGetter(unittest.TestCase):
@@ -450,7 +555,6 @@ class TestModelAndTokenizerGetter(unittest.TestCase):
         transformers_extractor.get_model_and_tokenizer("non-existent model", random_weights=True)
 
         auto_model_mock.return_value.to.return_value.init_weights.assert_called_once()
-
 
 if __name__ == "__main__":
     unittest.main()
