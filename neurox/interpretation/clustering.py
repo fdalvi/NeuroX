@@ -63,6 +63,9 @@ def extract_independent_neurons(X, use_abs_correlation=True, clustering_threshol
     every cluster and this forms the final set of independent neurons that is
     returned
 
+    .. seealso::
+        `Dalvi, Fahim, et al. "Analyzing redundancy in pretrained transformer models." Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP). 2020. <https://www.aclweb.org/anthology/2020.emnlp-main.398.pdf>`_
+
     Parameters
     ----------
     X : numpy.ndarray
