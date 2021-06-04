@@ -3,86 +3,7 @@
 This module provides a set of methods to ablate both layers and individual
 neurons from a given set.
 """
-
-def filter_activations_by_layers(
-    train_activations, test_activations, filter_layers, rnn_size, num_layers, is_brnn
-):
-    """
-    Filter activations so that they only contain specific layers.
-
-    Useful for performing layer-wise analysis.
-
-    .. warning::
-        This function is deprecated and will be removed in future versions.
-
-    Parameters
-    ----------
-    train_activations : list of numpy.ndarray
-        List of *sentence representations* from the train set, where each
-        *sentence representation* is a numpy matrix of shape
-        ``[NUM_TOKENS x NUM_NEURONS]``. The method assumes that neurons from
-        all layers are present, with the number of neurons in every layer given
-        by ``rnn_size``
-    test_activations : list of numpy.ndarray
-        Similar to ``train_activations`` but with sentences from a test set.
-    filter_layers : str
-        A comma-separated string of the form "f1,f2,f10". "f" indicates a "forward"
-        layer while "b" indicates a backword layer in a Bidirectional RNN. If the
-        activations are from different kind of model, set ``is_brnn`` to ``False``
-        and provide only "f" entries. The number next to "f" is the layer number,
-        1-indexed. So "f1" corresponds to the embedding layer and so on.
-    rnn_size : int
-        Number of neurons in every layer.
-    num_layers : int
-        Total number of layers in the original model.
-    is_brnn : bool
-        Boolean indicating if the neuron activations are from a bidirectional model.
-
-    Returns
-    -------
-    filtered_train_activations : list of numpy.ndarray
-        Filtered train activations
-    filtered_test_activations : list of numpy.ndarray
-        Filtered test activations
-
-    Notes
-    -----
-    For bidirectional models, the method assumes that the internal structure is
-    as follows: forward layer 1 neurons, backward layer 1 neurons, forward layer
-    2 neurons ...
-
-    """
-    _layers = filter_layers.split(",")
-
-    layer_prefixes = ["f"]
-    if is_brnn:
-        layer_prefixes = ["f", "b"]
-
-    # FILTER settings
-    layers = list(
-        range(1, num_layers + 1)
-    )  # choose which layers you need the activations
-    filtered_train_activations = None
-    filtered_test_activations = None
-
-    layers_idx = []
-    for brnn_idx, b in enumerate(layer_prefixes):
-        for l in layers:
-            if "%s%d" % (b, l) in _layers:
-                start_idx = brnn_idx * (num_layers * rnn_size) + (l - 1) * rnn_size
-                end_idx = brnn_idx * (num_layers * rnn_size) + (l) * rnn_size
-
-                print(
-                    "Including neurons from %s%d(#%d to #%d)"
-                    % (b, l, start_idx, end_idx)
-                )
-                layers_idx.append(np.arange(start_idx, end_idx))
-    layers_idx = np.concatenate(layers_idx)
-
-    filtered_train_activations = [a[:, layers_idx] for a in train_activations]
-    filtered_test_activations = [a[:, layers_idx] for a in test_activations]
-
-    return filtered_train_activations, filtered_test_activations
+import numpy as np
 
 def keep_specific_neurons(X, neuron_list):
     """
@@ -209,3 +130,61 @@ def zero_out_activations_remove_neurons(X, neurons_to_remove):
     _X[:, neurons_to_remove] = 0
 
     return _X
+
+def filter_activations_by_layers(
+    X, layers_to_keep, num_layers, bidirectional_filtering="none"
+):
+    """
+    Filter activations so that they only contain specific layers.
+
+    Useful for performing layer-wise analysis.
+
+    Parameters
+    ----------
+    X : numpy.ndarray
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
+        output of ``interpretation.utils.create_tensors``
+    layers_to_keep : list or numpy.ndarray
+        List of layers to keep. Layers are 0-indexed
+    num_layers : int
+        Total number of layers in the original model.
+    bidirectional_filtering : str
+        Can be either "none" (Default), "forward" or "backward". Useful if the
+        model being analyzed is bi-directional and only layers in a certain
+        direction need to be analyzed.
+    Returns
+    -------
+    filtered_X : numpy.ndarray
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS_PER_LAYER * NUM_LAYERS``]
+        The second dimension is doubled if the original model is bidirectional
+        and no filtering is done.
+
+    Notes
+    -----
+    For bidirectional models, the method assumes that the internal structure is
+    as follows: forward layer 0 neurons, backward layer 0 neurons, forward layer
+    0 neurons ...
+
+    """
+    bidirectional_filtering = bidirectional_filtering.lower()
+    assert bidirectional_filtering in ["none", "forward", "backward"]
+
+    neurons_to_keep = []
+    for layer in layers_to_keep:
+        if bidirectional_filtering == "none":
+            num_neurons_per_layer = X.shape[1] // num_layers
+            start = layer * num_neurons_per_layer
+            end = start + num_neurons_per_layer
+        elif bidirectional_filtering == "forward":
+            num_neurons_per_layer = X.shape[1] // (num_layers * 2)
+            start = layer * (num_neurons_per_layer * 2)
+            end = start + num_neurons_per_layer
+        elif bidirectional_filtering == "backward":
+            num_neurons_per_layer = X.shape[1] // (num_layers * 2)
+            start = layer * num_neurons_per_layer * 2 + num_neurons_per_layer
+            end = start + num_neurons_per_layer
+
+        neurons_to_keep.append(list(range(start, end)))
+    neurons_to_keep = np.concatenate(neurons_to_keep)
+
+    return filter_activations_keep_neurons(X, neurons_to_keep)
