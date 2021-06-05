@@ -343,7 +343,7 @@ def evaluate_probe(
         Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
         output of ``interpretation.utils.create_tensors``. ``dtype`` of the
         matrix must be ``np.float32``
-    y_train : numpy.ndarray
+    y : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. For classification, 0-indexed class labels for each input token
         are expected. For regression, a real value per input token is expected.
@@ -421,6 +421,7 @@ def evaluate_probe(
             # Classification
             _, predicted = torch.max(outputs.data, 1)
         predicted = predicted.cpu().numpy()
+
         for i in range(0, len(predicted)):
             idx = labels[i].item()
             if idx_to_class:
