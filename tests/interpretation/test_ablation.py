@@ -46,7 +46,7 @@ class TestFilterActivationsKeepNeurons(unittest.TestCase):
         filtered_activations = ablation.keep_specific_neurons(self.activations, self.neuron_idx_to_keep)
         np.testing.assert_array_almost_equal(filtered_activations, self.useful_activations)
 
-    def test_filter_activations_keep_neurons_view(self):
+    def test_keep_specific_neurons_view(self):
         "Filter activations (keep neurons) view - alternative function"
         # Test if changing the returned view changes the original matrix
         filtered_activations = ablation.keep_specific_neurons(self.activations, self.neuron_idx_to_keep)
