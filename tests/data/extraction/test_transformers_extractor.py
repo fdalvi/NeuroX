@@ -90,8 +90,8 @@ class TestAggregation(unittest.TestCase):
 
 class TestExtraction(unittest.TestCase):
     @classmethod
-    @patch('transformers.tokenization_bert.BertTokenizer')
-    @patch('transformers.modeling_bert.BertModel')
+    @patch('transformers.BertTokenizer')
+    @patch('transformers.BertModel')
     def setUpClass(cls, model_mock, tokenizer_mock):
         cls.num_layers = 13
         cls.num_neurons_per_layer = 768
