@@ -17,8 +17,22 @@ A demo using a lot of functionality provided by this toolkit [is available](http
 
 ![demo picture](docs/intro/en-ar-NeuroX-demo.png)
 
-## Requirements
-A [Conda]() environment is provided with all the necessary dependencies for the toolkit. The toolkit primarily relies on PyTorch and NumPy for most of its operations. To create a new environment with all the dependencies, run:
+## Getting Started
+Clone this repository into a directory of your choice:
+
+```bash
+git clone https://github.com/fdalvi/NeuroX.git
+```
+
+Add the directory to your python path. This can be done dynamically at runtime using the `sys.path` list:
+
+```python
+import sys
+sys.path.append("path/to/cloned/NeuroX/")
+
+```
+
+A [Conda](https://anaconda.org) environment is provided with all the necessary dependencies for the toolkit. The toolkit primarily relies on PyTorch and NumPy for most of its operations. To create a new environment with all the dependencies, run:
 
 ```bash
 conda env create -f conda-environment.yml -n neurox-toolkit
@@ -27,10 +41,10 @@ conda activate neurox-toolkit
 
 If you wish to manage your enviroment in other ways, a standard `requirements.txt` is also provided for use by `pip` directly.
 
-## Getting Started
-A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in [examples/](examples/End to End Example.ipynb) for a quick introduction to the main functionality provided by this toolkit.
+## Sample Code
+A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in the [examples](examples/End%20to%20End%20Example.ipynb) directory for a quick introduction to the main functionality provided by this toolkit.
 
-## Docs
+## Documentation
 [API Reference](https://neurox.qcri.org/docs/) contains an API reference for all of the functions exposed by this toolkit. Primarily, the toolkit's functionality is separated into several high-level components:
 
 - Extraction
@@ -61,7 +75,20 @@ Please cite our paper published at AAAI'19 if you use this toolkit.
 
 ## Planned features
 
-[ ] Pip package
-[ ] Support for OpenNMT-py models
-[ ] Support for control tasks and computing metrics like selectivity
-[ ] Support for attention and other module analysis
+- [ ] Pip package
+- [ ] Support for OpenNMT-py models
+- [ ] Support for control tasks and computing metrics like selectivity
+- [ ] Support for attention and other module analysis
+
+## Publications
+- Nadir Durrani, Hassan Sajjad, Fahim Dalvi (2021). [How transfer learning impacts linguistic knowledge in deep NLP models?](https://alt.qcri.org/~ndurrani/pubs/ACL-FT-2021.pdf) In Findings of the Association for Computational Linguistics (ACL-IJCNLP). Virtual, August
+- Yonatan Belinkov\*, Nadir Durrani\*, Fahim Dalvi, Hassan Sajjad, Jim Glass (2020). [On the Linguistic Representational Power of Neural Machine Translation Models.](https://www.aclweb.org/anthology/2020.cl-1.1.pdf) Computational Linguistics. 46(1), pages 1 to 57 (\*Equal Contribution––Alphabetic Order).
+- Nadir Durrani, Hassan Sajjad, Fahim Dalvi, Yonatan Belinkov (2020). [Analyzing Individual Neurons in Pre-trained Language Models.](https://www.aclweb.org/anthology/2020.emnlp-main.395.pdf) In Proceedings of the 17th Conference on Empirical Methods in Natural Language Processing (EMNLP), Punta Cana, Dominican Republic, November.
+- Fahim Dalvi, Hassan Sajjad, Nadir Durrani, Yonatan Belinkov (2020). [Analyzing Redundancy in Pretrained Transformer Models](https://www.aclweb.org/anthology/2020.emnlp-main.398.pdf). In Proceedings of the 17th Conference on Empirical Methods in Natural Language Processing (EMNLP), Punta Cana, Dominican Republic, November.
+- John M Wu\*, Yonatan Belinkov\*, Hassan Sajjad, Nadir Durrani, Fahim Dalvi and James Glass (2020). [Similarity Analysis of Contextual Word Representation Models.](https://www.aclweb.org/anthology/2020.acl-main.422.pdf) In Proceedings of the 58th Annual Conference of the Association for Computational Linguistics (ACL). Seattle, USA, July (\*Equal Contribution––Alphabetic Order).
+- Anthony Bau\*, Yonatan Belinkov\*, Hassan Sajjad, Fahim Dalvi, Nadir Durrani, and James Glass (2019). [Identifying and Controlling Important Neurons in Neural Machine Translation.](https://openreview.net/pdf?id=H1z-PsR5KX) In Proceedings of the 7th International Conference on Learning Representations (ICLR). New Orleans, USA, May (\*Equal Contribution––Alphabetic Order).
+- Nadir Durrani, Fahim Dalvi, Hassan Sajjad, Yonatan Belinkov, and Preslav Nakov (2019). [One Size Does Not Fit All: Comparing NMT Representations of Different Granularities.](https://www.aclweb.org/anthology/N19-1154.pdf) In Proceedings of the 17th Annual Conference of the North American Chapter of the Association of Computational Linguistics: Human Language Technologies (NAACL), Minneapolis, US, June
+- Fahim Dalvi\*, Nadir Durrani\*, Hassan Sajjad\*, Yonatan Belinkov, D. Anthony Bau, and James Glass (2019). [What is one Grain of Sand in the Desert? Analyzing Individual Neurons in Deep NLP Models.](https://ojs.aaai.org/index.php/AAAI/article/view/4592/4470) In Proceedings of the 33rd AAAI Conference on Artificial Intelligence (AAAI). Honolulu, USA, Jan. (\*Equal Contribution––Alphabetic Order).
+- Yonatan Belinkov, Nadir Durrani, Fahim Dalvi, Hassan Sajjad, James Glass (2017). [What do Neural Machine Translation Models Learn about Morphology?] (https://www.aclweb.org/anthology/P17-1080.pdf) In Proceedings of the 55th Annual Conference of the Association for Computational Linguistics (ACL), Vancouver, Canada, July.
+- Fahim Dalvi, Nadir Durrani, Hassan Sajjad, Yonatan Belinkov and Stephan Vogel (2017). [Understanding and Improving Morphological Learning in the Neural Machine Translation Decoder.](https://www.aclweb.org/anthology/I17-1015.pdf) In Proceedings of the 8th International Conference on Natural Language Processing (IJCNLP), Taipei, Taiwan, November.
+- Yonatan Belinkov, Lluís Màrquez, Hassan Sajjad, Nadir Durrani, Fahim Dalvi and James Glass (2017). [Evaluating Layers of Representation in Neural Machine Translation on Part-of-Speech and Semantic Tagging Tasks.](https://www.aclweb.org/anthology/I17-1001.pdf) In Proceedings of the 8th International Conference on Natural Language Processing (IJCNLP), Taipei, Taiwan, November
