@@ -31,13 +31,14 @@ If you wish to manage your enviroment in other ways, a standard `requirements.tx
 A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in [examples/](examples/End to End Example.ipynb) for a quick introduction to the main functionality provided by this toolkit.
 
 ## Docs
-[docs/README](docs/README.md) contains an API reference for all of the functions exposed by this toolkit. Primarily, the toolkit's functionality is separated into five components:
+[API Reference](https://neurox.qcri.org/docs/) contains an API reference for all of the functions exposed by this toolkit. Primarily, the toolkit's functionality is separated into several high-level components:
 
-1. Extraction
-2. Data Preprocessing
-3. Probing
-4. Neuron extraction and interpretation
-5. Visualization and analysis
+- Extraction
+- Data Preprocessing
+- Linear Probing
+- Neuron extraction and interpretation
+- Neuron cluster analysis
+- Visualization
 
 ## Citation
 
