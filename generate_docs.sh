@@ -1,10 +1,12 @@
 #!/bin/bash
 
 rm -rf docs-generator
-sphinx-apidoc -o docs-generator neurox sphinx-apidoc --full -A 'Fahim Dalvi' --templatedir docs/sphinx_templates
+sphinx-apidoc -o docs-generator neurox sphinx-apidoc --full -H 'NeuroX toolkit' -A 'Fahim Dalvi' --templatedir docs/sphinx_templates
 
 cd docs-generator
 mkdir -p _static/css
+mkdir -p _static/img
+
 original_css_file_location=`python -c "import insegel as _; print(_.__path__[0])"`/static/css/insegel.css
 cat ${original_css_file_location} > _static/css/insegel.css
 echo "
@@ -32,6 +34,8 @@ echo "
     margin-right: 20px;
 }" >> _static/css/insegel.css
 
+cp ../logo.svg _static/img/logo.svg
+
 echo "
 
 import os
@@ -47,6 +51,10 @@ extensions.append('sphinx.ext.napoleon')
 html_theme = 'insegel'
 
 autodoc_member_order = 'bysource'
+
+html_theme_options = {
+
+}
 " >> conf.py
 
 make html

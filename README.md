@@ -2,6 +2,8 @@
 
 ![logo](docs/intro/logo.png)
 
+[API Reference](https://neurox.qcri.org/docs/)
+
 NeuroX provide all the necessary tooling to perform Interpretation and Analysis of (Deep) Neural Networks centered around _Probing_. Specifically, the toolkit provides:
 
 - Support for extraction of activation from popular models including the entirety of [transformers](https://github.com/huggingface/transformers), with extended support for other models like [OpenNMT-py](https://github.com/OpenNMT/OpenNMT-py) planned in the near future
