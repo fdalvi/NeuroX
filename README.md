@@ -18,6 +18,8 @@ A demo using a lot of functionality provided by this toolkit [is available](http
 ![demo picture](docs/intro/en-ar-NeuroX-demo.png)
 
 ## Getting Started
+This toolkit requires and is tested on Python versions 3.6 and above. It may work with older Python versions with some fiddling, but is currently not tested nor supported.
+
 Clone this repository into a directory of your choice:
 
 ```bash
