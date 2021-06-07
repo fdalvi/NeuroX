@@ -11,7 +11,7 @@ NeuroX provide all the necessary tooling to perform Interpretation and Analysis 
 
 - Support for extraction of activation from popular models including the entirety of [transformers](https://github.com/huggingface/transformers), with extended support for other models like [OpenNMT-py](https://github.com/OpenNMT/OpenNMT-py) planned in the near future
 - Support for training linear probes on top of these activations, on the entire activation space of a model, on specific layers, or even on specific set of neurons.
-- Support for neuron extraction related to specific concepts, using the _Linear Correlation Analysis_ method ([Paper et. al](...)). The toolkit can extract either a local ranking of neurons important to a particular target class, or a global ranking of neurons important to all the target classes.
+- Support for neuron extraction related to specific concepts, using the _Linear Correlation Analysis_ method ([What is one Grain of Sand in the Desert? Analyzing Individual Neurons in Deep NLP Models.](https://ojs.aaai.org/index.php/AAAI/article/view/4592/4470)). The toolkit can extract either a local ranking of neurons important to a particular target class, or a global ranking of neurons important to all the target classes.
 - Support for ablation analysis by either removing or zeroing out specific neurons to determine their function and importance.
 - Support for subword and character level aggregation across a variety of tokenizers, including BPE and all tokenizers in the [transformers](https://github.com/huggingface/transformers) library.
 - Support for activation visualization over regular text, to generate qualitative samples of neuron activity over particular sentences.
