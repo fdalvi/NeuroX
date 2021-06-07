@@ -1,8 +1,11 @@
 # NeuroX Toolkit
 
-![logo](docs/intro/logo.png)
+<p align="center">
+  <img src="docs/intro/logo.png?raw=True" />
+</p>
 
-[API Reference](https://neurox.qcri.org/docs/)
+[![Tests Runner](https://github.com/fdalvi/NeuroX/actions/workflows/python-package.yml/badge.svg)](https://github.com/fdalvi/NeuroX/actions/workflows/python-package.yml)
+[![API Reference](https://img.shields.io/badge/API-Reference-blue)](https://neurox.qcri.org/docs/)
 
 NeuroX provide all the necessary tooling to perform Interpretation and Analysis of (Deep) Neural Networks centered around _Probing_. Specifically, the toolkit provides:
 
