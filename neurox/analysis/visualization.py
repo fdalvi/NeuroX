@@ -1,4 +1,13 @@
+import os
+import sys
+
 import svgwrite
+
+from neurox.data.extraction.transformers_extractor import (
+    get_model_and_tokenizer,
+    extract_sentence_representations,
+)
+
 
 # Helper methods
 def _break_lines(text, limit=50):
@@ -196,3 +205,67 @@ def visualize_activations(
     dwg.add(group)
 
     return dwg
+
+
+class TransformersVisualizer:
+    """
+    Helper class to visualize sentences using activations from a
+    ``transformers`` model.
+
+    Attributes
+    ----------
+    model_name : str
+        A ``transformers`` model name or path, e.g. ``bert-base-uncased``
+    model : ``transformers`` model
+        The loaded model
+    tokenizer : ``transformers`` tokenizer
+        The loaded tokenizer
+
+    Methods
+    -------
+    __call__(tokens, layer, neuron)
+        An object of this class can be called directly to get the visualized
+        activations
+
+    Examples
+    --------
+    >>> visualizer = TransformersVisualizer('bert-base-uncased')
+    >>> svg1 = visualizer(["This", "is", "a", "test"], 0, 10)
+    >>> svg2 = visualizer(["This", "is", "another", "test"], 5, 767)
+
+    """
+
+    def __init__(self, model_name):
+        "Load the model and tokenizer"
+        self.model_name = model_name
+        self.model, self.tokenizer = get_model_and_tokenizer(model_name)
+
+    class __HiddenPrints__:
+        def __enter__(self):
+            self._original_stdout = sys.stdout
+            sys.stdout = open(os.devnull, "w")
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            sys.stdout.close()
+            sys.stdout = self._original_stdout
+
+    def __call__(self, tokens, layer, neuron):
+        """
+        Visualize the activations of ``neuron`` from ``layer`` in the loaded
+        model on the given tokens.
+
+        Parameters
+        ----------
+        tokens : list of str
+            List of tokens to compute and visualize the activations for
+        layer : int
+            Layer index of the chosen neuron to visualize in the loaded model
+        neuron : int
+            Neuron index of the chosen neuron
+        """
+
+        with self.__HiddenPrints__():
+            activations, _ = extract_sentence_representations(
+                " ".join(tokens), self.model, self.tokenizer
+            )
+        return visualize_activations(tokens, activations[layer, :, neuron])
