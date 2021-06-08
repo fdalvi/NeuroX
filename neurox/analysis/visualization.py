@@ -249,7 +249,7 @@ class TransformersVisualizer:
             sys.stdout.close()
             sys.stdout = self._original_stdout
 
-    def __call__(self, tokens, layer, neuron):
+    def __call__(self, tokens, layer, neuron, **kwargs):
         """
         Visualize the activations of ``neuron`` from ``layer`` in the loaded
         model on the given tokens.
@@ -262,10 +262,12 @@ class TransformersVisualizer:
             Layer index of the chosen neuron to visualize in the loaded model
         neuron : int
             Neuron index of the chosen neuron
+        kwargs : dict
+            Dictionary of keyword arguments to pass to ``visualize_activations``
         """
 
         with self.__HiddenPrints__():
             activations, _ = extract_sentence_representations(
                 " ".join(tokens), self.model, self.tokenizer
             )
-        return visualize_activations(tokens, activations[layer, :, neuron])
+        return visualize_activations(tokens, activations[layer, :, neuron], **kwargs)
