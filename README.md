@@ -86,7 +86,7 @@ Please cite our paper published at AAAI'19 if you use this toolkit.
 
 ## Planned features
 
-- [ ] Pip package
+- [x] Pip package
 - [ ] Support for OpenNMT-py models
 - [ ] Support for control tasks and computing metrics like selectivity
 - [ ] Support for attention and other module analysis
