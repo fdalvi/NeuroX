@@ -74,11 +74,14 @@ class TestEvaluateProbe(unittest.TestCase):
         cls.num_features = 100
         cls.num_classes = 3
 
-        cls.trained_probe = linear_probe._train_probe(
-            np.random.random((cls.num_examples, cls.num_features)).astype(np.float32),
-            np.random.randint(0, cls.num_classes, size=cls.num_examples),
-            "classification"
-        )
+        X = np.random.random((cls.num_examples, cls.num_features)).astype(np.float32)
+        # Ensure y has all three class labels atleast once
+        y = np.concatenate((
+            np.arange(cls.num_classes),
+            np.random.randint(0, cls.num_classes, size=cls.num_examples - cls.num_classes),
+        ))
+
+        cls.trained_probe = linear_probe._train_probe(X, y, "classification")
 
     def test_evaluate_probe(self):
         "Basic probe evaluation"
