@@ -1,7 +1,7 @@
 # NeuroX Toolkit
 
 <p align="center">
-  <img src="docs/intro/logo.png?raw=True" />
+  <img src="https://github.com/fdalvi/NeuroX/raw/master/docs/intro/logo.png" />
 </p>
 
 [![Tests Runner](https://github.com/fdalvi/NeuroX/actions/workflows/python-package.yml/badge.svg)](https://github.com/fdalvi/NeuroX/actions/workflows/python-package.yml)
@@ -18,12 +18,18 @@ NeuroX provide all the necessary tooling to perform Interpretation and Analysis 
 
 A demo using a lot of functionality provided by this toolkit [is available](https://neurox.qcri.org/demo).
 
-![demo picture](docs/intro/en-ar-NeuroX-demo.png)
+![demo picture](https://github.com/fdalvi/NeuroX/raw/master/docs/intro/en-ar-NeuroX-demo.png)
 
 ## Getting Started
-This toolkit requires and is tested on Python versions 3.6 and above. It may work with older Python versions with some fiddling, but is currently not tested nor supported.
+This toolkit requires and is tested on Python versions 3.6 and above. It may work with older Python versions with some fiddling, but is currently not tested nor supported. The easiest way to get started is to use the published pip package:
 
-Clone this repository into a directory of your choice:
+```bash
+pip install neurox
+
+```
+
+#### Manual Installation
+If you wish to install this package manually (e.g. to modify or contribute to the code base), you can clone this repository into a directory of your choice:
 
 ```bash
 git clone https://github.com/fdalvi/NeuroX.git
