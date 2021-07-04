@@ -9,13 +9,14 @@ import h5py
 import json
 import re
 import collections
+import numpy as np
 
 """Create a binary word-level data set using a set of positive examples, or a regular expression or a function
 Author: Hassan Sajjad
 Last Modified: 4 July, 2021
 """
 
-def create_concept_data(tokens, activations, concept_filter):
+def create_concept_data(tokens, activations, concept_filter, num_layers, outputfile):
     """
     Given a set of sentences and per word activations, create a binary dataset using the provided pattern of the
     positive class. A pattern can be a set of words, a regex object or a function
@@ -27,6 +28,7 @@ def create_concept_data(tokens, activations, concept_filter):
     activations: list
         A list of sentence-wise activations 
     concept_filter: a set of words or a regex object or a function
+    num_layers: number of layers
     
     Returns
     -------
@@ -34,8 +36,8 @@ def create_concept_data(tokens, activations, concept_filter):
     
     Example
     -------
-    create_concept_data(tokens, activations, re.compile(r'^\w\w$')) select words of two characters only as a positive class
-    create_concept_data(tokens, activations, {'is', 'can'}) select occrrences of 'is' and 'can' as a positive class
+    create_concept_data(tokens, activations, re.compile(r'^\w\w$'), 12) select words of two characters only as a positive class
+    create_concept_data(tokens, activations, {'is', 'can'}, 12) select occrrences of 'is' and 'can' as a positive class
     """
     
     filter_fn = None
@@ -70,7 +72,7 @@ def create_concept_data(tokens, activations, concept_filter):
     
     labels = (['positive']*len(positive_class_words)) + ['negative']*len(positive_class_words)
     
-    save_files(positive_class_words+negative_class_words, labels, positive_class_activations+negative_class_activations)
+    save_files(positive_class_words+negative_class_words, labels, positive_class_activations+negative_class_activations, outputfile)
     
     
 def _balance_negative_class(words, activations, positive_class_size):
@@ -103,7 +105,7 @@ def _balance_negative_class(words, activations, positive_class_size):
     
     return swords, sactivations
     
-def save_files(words, labels, activations):
+def save_files(words, labels, activations, outputfile):
     
     """
     Save word and label file in text format and activations in hdf5 format
@@ -124,15 +126,15 @@ def save_files(words, labels, activations):
     
     """ 
     
-    with codecs.open("output.word", "w", "utf-8-sig") as file:
+    with codecs.open(outputfile+".word", "w", "utf-8") as file:
         print(*words, sep = "\n", file = file)
         file.close()
 
-    with codecs.open("output.label", "w", "utf-8-sig") as file:
+    with codecs.open(outputfile+".label", "w", "utf-8") as file:
         print(*labels, sep = "\n", file = file)
         file.close()
     
-    h5py_path = "output.hdf5"
+    h5py_path = outputfile+".hdf5"
     with h5py.File(h5py_path, "w") as output_file:
         sentence_to_index = {}
         for word_idx, word in enumerate(words):
@@ -156,5 +158,5 @@ def save_files(words, labels, activations):
         )
         sentence_index_dataset[0] = json.dumps(sentence_to_index)
     output_file.close()
-    print ("Saved files at output.word, output.label and output.hdf5")
+    print ("Saved .word, .label. and .hdf5 files with prefix -> ", outputfile)
 
