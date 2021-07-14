@@ -109,10 +109,11 @@ class TestEvaluateProbe(unittest.TestCase):
     def test_evaluate_probe_with_return_predictions(self):
         "Probe evaluation with returned predictions"
         
+        y_true = np.random.randint(0, self.num_classes, size=self.num_examples)
         scores, predictions = linear_probe.evaluate_probe(
                 self.trained_probe,
                 np.random.random((self.num_examples, self.num_features)).astype(np.float32),
-                np.random.randint(0, self.num_classes, size=self.num_examples),
+                y_true,
                 return_predictions=True
             )
         self.assertIn("__OVERALL__", scores)
@@ -123,6 +124,7 @@ class TestEvaluateProbe(unittest.TestCase):
         # Source words should be from 0 to num_examples since no source_tokens
         # were given
         self.assertListEqual([p[0] for p in predictions], list(range(self.num_examples)))
+        self.assertNotEqual([p[1] for p in predictions], list(y_true))
 
 class TestGetTopNeurons(unittest.TestCase):
     @patch("neurox.interpretation.linear_probe.LinearProbe")

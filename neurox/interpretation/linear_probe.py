@@ -423,7 +423,7 @@ def evaluate_probe(
         predicted = predicted.cpu().numpy()
 
         for i in range(0, len(predicted)):
-            idx = labels[i].item()
+            idx = predicted[i]
             if idx_to_class:
                 key = idx_to_class[idx]
             else:
@@ -436,7 +436,7 @@ def evaluate_probe(
                     src_word = next(src_words)
                 else:
                     src_word = src_word + 1
-                predictions.append((src_word, key, predicted[i] == idx))
+                predictions.append((src_word, key, labels[i].item() == idx))
 
     y_pred = np.array(y_pred)
 
