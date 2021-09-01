@@ -2,7 +2,6 @@ name: neurox-toolkit
 channels:
   - defaults
 dependencies:
-  - appnope=0.1.2
   - argon2-cffi=20.1.0
   - async_generator=1.10
   - attrs=21.2.0
@@ -36,7 +35,7 @@ dependencies:
   - jupyterlab_widgets=1.0.0
   - libcxx=10.0.0
   - libffi=3.3
-  - libiconv=1.16
+  - conda-forge::libiconv=1.16
   - libpng=1.6.37
   - libsodium=1.0.18
   - libxml2=2.9.10
