@@ -24,9 +24,6 @@ import h5py
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel
 
-## Globals
-tokenization_counts = {}
-
 
 def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     """
@@ -121,6 +118,7 @@ def extract_sentence_representations(
     device="cpu",
     include_embeddings=True,
     aggregation="last",
+    tokenization_counts={}
 ):
     """
     Get representations for one sentence
@@ -285,6 +283,7 @@ def extract_representations(
         output_file = open(output_file, "w", encoding="utf-8")
 
     print("Extracting representations from model")
+    tokenization_counts = {} # Cache for tokenizer rules
     for sentence_idx, sentence in enumerate(corpus_generator(input_corpus)):
         hidden_states, extracted_words = extract_sentence_representations(
             sentence,
@@ -293,6 +292,7 @@ def extract_representations(
             device=device,
             include_embeddings=(not ignore_embeddings),
             aggregation=aggregation,
+            tokenization_counts=tokenization_counts
         )
 
         print("Hidden states: ", hidden_states.shape)
