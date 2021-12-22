@@ -7,9 +7,11 @@ both layer-wise and neuron-wise analysis.
         `Dalvi, Fahim, et al. "What is one grain of sand in the desert? analyzing individual neurons in deep nlp models." Proceedings of the AAAI Conference on Artificial Intelligence. Vol. 33. No. 01. 2019. <https://ojs.aaai.org/index.php/AAAI/article/view/4592>`_
 """
 import numpy as np
+import time
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from group_lasso import LogisticGroupLasso
 
 from . import metrics
 from . import utils
@@ -198,6 +200,29 @@ def _train_probe(
         )
 
     return probe
+
+def _train_sgl_probe(X_train,
+                     Y_train,
+                     n_layers, 
+                     n_neurons_per_layer,
+                     group_reg=0,
+                     l1_reg=0,
+                     scale_reg='inverse_group_size'
+                     
+):
+    """
+    Trains a logistic regression probe with Sparse Group Lasso regularization.
+    """
+    LogisticGroupLasso.LOG_LOSSES = True
+    group_index = interpretation.utils.get_group_index(n_layers,                         n_neurons_per_layer)
+    sgl_probe = LogisticGroupLasso(groups=group_index, group_reg=group_reg,             l1_reg=l1_reg, scale_reg=scale_reg, supress_warning=True) 
+    start = time.time()
+    print("Training SGL probe...")
+    sgl_probe.fit(X_train, Y_train)
+    end = time.time()
+    print("Training time = " + str((end-start)/3600) + " hours")
+    
+    return sgl_probe
 
 def train_logistic_regression_probe(
     X_train,
