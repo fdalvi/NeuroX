@@ -204,18 +204,24 @@ def _train_probe(
 def _train_sgl_probe(X_train,
                      Y_train,
                      n_layers, 
-                     n_neurons_per_layer,
                      group_reg=0,
                      l1_reg=0,
-                     scale_reg='inverse_group_size'
+                     n_iter=100,
+                     tol = 1e-05,
+                     scale_reg='inverse_group_size',
+                     subsampling_scheme=None,
+                     fit_intercept=True,
+                     random_state=None,
+                     warm_start=False
                      
 ):
     """
     Trains a logistic regression probe with Sparse Group Lasso regularization.
     """
     LogisticGroupLasso.LOG_LOSSES = True
-    group_index = interpretation.utils.get_group_index(n_layers,                         n_neurons_per_layer)
-    sgl_probe = LogisticGroupLasso(groups=group_index, group_reg=group_reg,             l1_reg=l1_reg, scale_reg=scale_reg, supress_warning=True) 
+    n_neurons_per_layer = int(X_train.shape[1]/n_layers)
+    group_index = interpretation.utils.get_group_index(n_layers, n_neurons_per_layer)
+    sgl_probe = LogisticGroupLasso(groups=group_index, group_reg=group_reg, l1_reg=l1_reg, scale_reg=scale_reg, supress_warning=True) 
     start = time.time()
     print("Training SGL probe...")
     sgl_probe.fit(X_train, Y_train)
@@ -227,12 +233,10 @@ def _train_sgl_probe(X_train,
 def train_logistic_regression_probe(
     X_train,
     y_train,
-    lambda_l1=0,
-    lambda_l2=0,
-    num_epochs=10,
-    batch_size=32,
-    learning_rate=0.001,
+    regularization = "elastic_net",
+    **kwargs
 ):
+    
     """
     Train a logistic regression probe.
 
@@ -273,16 +277,51 @@ def train_logistic_regression_probe(
         Trained probe for the given task.
 
     """
-    return _train_probe(
-        X_train,
-        y_train,
-        task_type="classification",
-        lambda_l1=lambda_l1,
-        lambda_l2=lambda_l2,
-        num_epochs=num_epochs,
-        batch_size=batch_size,
-        learning_rate=learning_rate,
-    )
+
+    if (regularization == "sparse_group_lasso") :
+        return _train_sgl_probe(
+            X_train,
+            y_train,
+            n_layers=kwargs["n_layers"],
+            group_reg=kwargs["group_reg"],
+            l1_reg=kwargs["l1_reg"],
+            n_iter=kwargs["n_iter"],
+            tol=kwargs["tol"],
+            scale_reg=kwargs["scale_reg"],
+            subsampling_scheme=kwargs["subsampling_scheme"],
+            fit_intercept=kwargs["fit_intercept"],
+            random_state=kwargs["random_state"],
+            warm_start=kwargs["warm_start"]
+        )
+    
+    elif (regularization == "group_lasso") :
+        return _train_sgl_probe(
+            X_train,
+            y_train,
+            n_layers=kwargs["n_layers"],
+            group_reg=kwargs["group_reg"],
+            l1_reg=0,
+            n_iter=kwargs["n_iter"],
+            tol=kwargs["tol"],
+            scale_reg=kwargs["scale_reg"],
+            subsampling_scheme=kwargs["subsampling_scheme"],
+            fit_intercept=kwargs["fit_intercept"],
+            random_state=kwargs["random_state"],
+            warm_start=kwargs["warm_start"]
+        )
+        
+    else :
+        return _train_probe(
+            X_train,
+            y_train,
+            task_type="classification",
+            lambda_l1=kwargs["lambda_l1"],
+            lambda_l2=kwargs["lambda_l2"],
+            num_epochs=kwargs["num_epochs"],
+            batch_size=kwargs["batch_size"],
+            learning_rate=kwargs["learning_rate"],
+        )
+    
 
 
 def train_linear_regression_probe(
