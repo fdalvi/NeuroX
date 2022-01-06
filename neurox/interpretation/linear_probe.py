@@ -220,7 +220,7 @@ def _train_sgl_probe(X_train,
     """
     LogisticGroupLasso.LOG_LOSSES = True
     n_neurons_per_layer = int(X_train.shape[1]/n_layers)
-    group_index = interpretation.utils.get_group_index(n_layers, n_neurons_per_layer)
+    group_index = utils.get_group_index(n_layers, n_neurons_per_layer)
     sgl_probe = LogisticGroupLasso(groups=group_index, group_reg=group_reg, l1_reg=l1_reg, scale_reg=scale_reg, supress_warning=True) 
     start = time.time()
     print("Training SGL probe...")
@@ -229,6 +229,40 @@ def _train_sgl_probe(X_train,
     print("Training time = " + str((end-start)/3600) + " hours")
     
     return sgl_probe
+
+def _probe_param_init(kwargs) :
+        
+        if "n_iter" not in kwargs :
+            kwargs["n_iter"] = 100
+        
+        if "tol" not in kwargs :
+            kwargs["tol"] = 1e-05
+        
+        if "scale_reg" not in kwargs :
+            kwargs["scale_reg"] = "inverse_group_size"
+        
+        if "subsampling_scheme" not in kwargs :
+            kwargs["subsampling_scheme"] = None
+       
+        if "fit_intercept" not in kwargs :
+            kwargs["fit_intercept"] = True
+        
+        if "random_state" not in kwargs :
+            kwargs["random_state"] = None
+        
+        if "warm_start" not in kwargs :
+            kwargs["warm_start"] = False
+            
+        if "num_epochs" not in kwargs :
+            kwargs["num_epochs"] = 10
+            
+        if "batch_size" not in kwargs :
+            kwargs["batch_size"] = 32
+            
+        if "learning_rate" not in kwargs :
+            kwargs["learning_rate"] = 0.001
+            
+        return kwargs
 
 def train_logistic_regression_probe(
     X_train,
@@ -277,8 +311,9 @@ def train_logistic_regression_probe(
         Trained probe for the given task.
 
     """
-
-    if (regularization == "sparse_group_lasso") :
+    kwargs = _probe_param_init(kwargs)
+        
+    if (regularization == "sparse_group_lasso") :            
         return _train_sgl_probe(
             X_train,
             y_train,
@@ -321,8 +356,7 @@ def train_logistic_regression_probe(
             batch_size=kwargs["batch_size"],
             learning_rate=kwargs["learning_rate"],
         )
-    
-
+        
 
 def train_linear_regression_probe(
     X_train,
