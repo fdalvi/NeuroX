@@ -33,7 +33,8 @@ def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     Parameters
     ----------
     model_desc : str
-        Model description; can either be a model name like ``bert-base-uncased``
+        Model description; can either be a model name like ``bert-base-uncased``,
+        a comma separated list indicating <model>,<tokenizer> (since 1.0.8),
         or a path to a trained model
 
     device : str, optional
@@ -50,8 +51,15 @@ def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     tokenizer : transformers tokenizer
         An instance of one of the transformers.tokenization classes
     """
-    model = AutoModel.from_pretrained(model_desc, output_hidden_states=True).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(model_desc)
+    model_desc = model_desc.split(",")
+    if len(model_desc) == 1:
+        model_name = model_desc[0]
+        tokenizer_name = model_desc[0]
+    else:
+        model_name = model_desc[0]
+        tokenizer_name = model_desc[1]
+    model = AutoModel.from_pretrained(model_name, output_hidden_states=True).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
     if random_weights:
         print("Randomizing weights")
