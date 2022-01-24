@@ -416,6 +416,10 @@ def train_linear_regression_probe(
         learning_rate=learning_rate,
     )
 
+def _if_sgl(probe) :
+    
+    return isinstance(probe,LogisticGroupLasso)
+
 
 def evaluate_probe(
     probe,
@@ -477,6 +481,12 @@ def evaluate_probe(
 
     """
     progressbar = utils.get_progress_bar()
+    
+    if _if_sgl(probe)==True :
+        
+        weights = probe.coef_.transpose()
+        
+        
 
     # Check if we can use GPU's for evaluation
     use_gpu = torch.cuda.is_available()
