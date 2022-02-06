@@ -1,8 +1,12 @@
+import json
+import os
 import unittest
 
 from io import StringIO
 from unittest.mock import MagicMock, patch
+from tempfile import TemporaryDirectory
 
+import h5py
 import numpy as np
 import torch
 
@@ -572,6 +576,105 @@ class TestModelAndTokenizerGetter(unittest.TestCase):
 
         self.assertTrue(torch.equal(model, expected_model))
         self.assertTrue(torch.equal(tokenizer, expected_tokenizer))
+
+class TestSaving(unittest.TestCase):
+    def setUp(self):
+        self.test_sentences = [
+            "Hello , this is test 1 .",
+            "Hello , this is another test number 2 .",
+            "This is test # 3 .",
+            "And finally , this is the last test !"
+        ]
+        self.expected_activations = [
+            torch.rand((13, len(sentence.split(" ")), 768)) for sentence in self.test_sentences
+        ]
+        self.tmpdir = TemporaryDirectory()
+
+        self.input_file = os.path.join(self.tmpdir.name, "input_file.txt")
+        with open(self.input_file, "w") as fp:
+            for sentence in self.test_sentences:
+                fp.write(sentence + "\n")
+
+        self.call_counter = 0
+        def mocked_model(*args, **kwargs):
+            sentence = self.test_sentences[self.call_counter]
+            activations = self.expected_activations[self.call_counter]
+
+            self.call_counter += 1
+
+            return activations, sentence.split(" ")
+        self.mocked_model = mocked_model
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    @patch('neurox.data.extraction.transformers_extractor.extract_sentence_representations')
+    @patch('neurox.data.extraction.transformers_extractor.get_model_and_tokenizer')
+    def test_save_hdf5(self, get_model_mock, extraction_mock):
+        get_model_mock.return_value = (None, None)
+        extraction_mock.side_effect = self.mocked_model
+
+        output_file = os.path.join(self.tmpdir.name, "output.hdf5")
+
+        transformers_extractor.extract_representations("non-existant model", self.input_file, output_file, output_type="hdf5")
+
+        saved_activations = h5py.File(output_file)
+
+        # Check hdf5 structure
+        self.assertEqual(len(saved_activations.keys()), len(self.test_sentences) + 1)
+        self.assertTrue("sentence_to_index" in saved_activations)
+        for idx in range(len(self.test_sentences)):
+            self.assertTrue(str(idx) in saved_activations)
+
+        # Check saved sentences
+        self.assertEqual(len(saved_activations["sentence_to_index"]), 1)
+        sentence_to_index = json.loads(saved_activations["sentence_to_index"][0])
+        self.assertEqual(len(sentence_to_index), len(self.test_sentences))
+        for sentence in sentence_to_index:
+            self.assertEqual(sentence, self.test_sentences[int(sentence_to_index[sentence])])
+
+        # Check saved activations
+        for sentence in sentence_to_index:
+            idx = sentence_to_index[sentence]
+            self.assertTrue(torch.equal(torch.FloatTensor(saved_activations[idx]), self.expected_activations[int(idx)]))
+
+    @patch('neurox.data.extraction.transformers_extractor.extract_sentence_representations')
+    @patch('neurox.data.extraction.transformers_extractor.get_model_and_tokenizer')
+    def test_save_json(self, get_model_mock, extraction_mock):
+        get_model_mock.return_value = (None, None)
+        extraction_mock.side_effect = self.mocked_model
+
+        output_file = os.path.join(self.tmpdir.name, "output.json")
+
+        transformers_extractor.extract_representations("non-existant model", self.input_file, output_file, output_type="json")
+
+        with open(output_file) as fp:
+            saved_activations = []
+            for line in fp:
+                saved_activations.append(json.loads(line))
+
+        # Check json structure
+        self.assertEqual(len(saved_activations), len(self.test_sentences))
+
+        for representation in saved_activations:
+            self.assertIn("linex_index", representation)
+            self.assertIn("features", representation)
+
+        # Check sentences and activations
+        for idx, representation in enumerate(saved_activations):
+            tokens = self.test_sentences[idx].split(" ")
+            self.assertEqual(len(representation["features"]), len(tokens))
+            for token_idx, token_repr in enumerate(representation["features"]):
+                self.assertEqual(token_repr["token"], tokens[token_idx])
+                self.assertEqual(len(token_repr["layers"]), 13)
+                for layer_idx in range(13):
+                    # Using allclose instead of equals since json is a lossy format
+                    self.assertTrue(torch.allclose(
+                        torch.Tensor(token_repr["layers"][layer_idx]["values"]),
+                        self.expected_activations[idx][layer_idx, token_idx, :]
+                    ))
+
+
 
 if __name__ == "__main__":
     unittest.main()
