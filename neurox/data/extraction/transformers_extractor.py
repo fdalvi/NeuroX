@@ -13,16 +13,16 @@ Last Modified: 1 February, 2020
 """
 
 import argparse
-import collections
-import json
 import sys
 
 import numpy as np
 import torch
-import h5py
+
 
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel
+
+from neurox.data.writer import ActivationsWriter
 
 
 def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
@@ -274,21 +274,8 @@ def extract_representations(
             return
 
     print("Preparing output file")
-    if output_type == "hdf5":
-        if not output_file.endswith(".hdf5"):
-            print(
-                "[WARNING] Output filename (%s) does not end with .hdf5, but output file type is hdf5."
-                % (output_file)
-            )
-        output_file = h5py.File(output_file, "w")
-        sentence_to_index = {}
-    elif output_type == "json":
-        if not output_file.endswith(".json"):
-            print(
-                "[WARNING] Output filename (%s) does not end with .json, but output file type is json."
-                % (output_file)
-            )
-        output_file = open(output_file, "w", encoding="utf-8")
+    writer = ActivationsWriter.get_writer(output_file, filetype=output_type)
+    writer.open_file()
 
     print("Extracting representations from model")
     tokenization_counts = {} # Cache for tokenizer rules
@@ -306,50 +293,9 @@ def extract_representations(
         print("Hidden states: ", hidden_states.shape)
         print("# Extracted words: ", len(extracted_words))
 
-        if output_type == "hdf5":
-            output_file.create_dataset(
-                str(sentence_idx),
-                hidden_states.shape,
-                dtype="float32",
-                data=hidden_states,
-            )
-            # TODO: Replace with better implementation with list of indices
-            final_sentence = sentence
-            counter = 1
-            while final_sentence in sentence_to_index:
-                counter += 1
-                final_sentence = f"{sentence} (Occurrence {counter})"
-            sentence = final_sentence
-            sentence_to_index[sentence] = str(sentence_idx)
-        elif output_type == "json":
-            output_json = collections.OrderedDict()
-            output_json["linex_index"] = sentence_idx
-            all_out_features = []
+        writer.write_activations(sentence_idx, extracted_words, hidden_states)
 
-            for word_idx, extracted_word in enumerate(extracted_words):
-                all_layers = []
-                for layer_idx in range(hidden_states.shape[0]):
-                    layers = collections.OrderedDict()
-                    layers["index"] = layer_idx
-                    layers["values"] = [
-                        round(x.item(), 8)
-                        for x in hidden_states[layer_idx, word_idx, :]
-                    ]
-                    all_layers.append(layers)
-                out_features = collections.OrderedDict()
-                out_features["token"] = extracted_word
-                out_features["layers"] = all_layers
-                all_out_features.append(out_features)
-            output_json["features"] = all_out_features
-            output_file.write(json.dumps(output_json) + "\n")
-
-    if output_type == "hdf5":
-        sentence_index_dataset = output_file.create_dataset(
-            "sentence_to_index", (1,), dtype=h5py.special_dtype(vlen=str)
-        )
-        sentence_index_dataset[0] = json.dumps(sentence_to_index)
-
-    output_file.close()
+    writer.close_file()
 
 
 HDF5_SPECIAL_TOKENS = {".": "__DOT__", "/": "__SLASH__"}
