@@ -139,7 +139,7 @@ def count_target_words(tokens):
 
 
 def create_tensors(
-    tokens, activations, task_specific_tag, mappings=None, task_type="classification"
+    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balanced = False
 ):
     """
     Method to pre-process loaded datasets into tensors that can be used to train
@@ -211,8 +211,13 @@ def create_tensors(
             src2idx, idx2src = mappings
     else:
         if task_type == "classification":
-            label2idx = tok2idx(target_tokens)
-            idx2label = idx2tok(label2idx)
+            if binarized_tag:                
+                label2idx = {binarized_tag: 1, "OTHER": 0}
+                idx2label = {1: binarized_tag, 0: "OTHER"}
+            else:
+                label2idx = tok2idx(target_tokens)
+                idx2label = idx2tok(label2idx)
+
         src2idx = tok2idx(source_tokens)
         idx2src = idx2tok(src2idx)
 
@@ -227,7 +232,7 @@ def create_tensors(
         y = np.zeros((num_tokens,), dtype=np.float32)
 
     example_set = set()
-
+    
     idx = 0
     for instance_idx, instance in enumerate(target_tokens):
         for token_idx, _ in enumerate(instance):
@@ -236,13 +241,16 @@ def create_tensors(
 
             example_set.add(source_tokens[instance_idx][token_idx])
             if task_type == "classification":
+                current_target_token = target_tokens[instance_idx][token_idx]
+                if binarized_tag and current_target_token != binarized_tag:
+                    current_target_token = "OTHER"
                 if (
                     mappings is not None
-                    and target_tokens[instance_idx][token_idx] not in label2idx
+                    and current_target_token not in label2idx
                 ):
                     y[idx] = label2idx[task_specific_tag]
                 else:
-                    y[idx] = label2idx[target_tokens[instance_idx][token_idx]]
+                    y[idx] = label2idx[current_target_token]
             elif task_type == "regression":
                 y[idx] = float(target_tokens[instance_idx][token_idx])
 
@@ -251,6 +259,18 @@ def create_tensors(
     print(idx)
     print("Total instances: %d" % (num_tokens))
     print(list(example_set)[:20])
+
+    print ("Shape of X", X.shape)
+
+    if balanced:
+        print ("Balancing data ... ")
+        if binarized_tag:
+            X, y = balance_binary_class_data(X, y)
+        else:
+            X, y = balance_multi_class_data(X, y)
+        print ("Shape of X", X.shape)
+
+    print ("Labels, frequencies: ", np.unique(y, return_counts=True))
 
     if task_type == "classification":
         return X, y, (label2idx, idx2label, src2idx, idx2src)
