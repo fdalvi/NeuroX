@@ -1,3 +1,37 @@
+"""Representations Writers
+
+Module with various writers for saving representations/activations. Currently,
+two file types are supported:
+
+1. ``hdf5``: This is a binary format, and results in smaller overall files.
+   The structure of the file is as follows:
+
+   * ``sentence_to_idx`` dataset: Contains a single json string at index 0 that
+     maps sentences to indices
+   * Indices ``0`` through ``N-1`` datasets: Each index corresponds to one
+     sentence. The value of the dataset is a tensor with dimensions
+     ``num_layers x sentence_length x embedding_size``, where ``embedding_size``
+     may include multiple layers
+2. ``json``: This is a human-readable format. There is some loss of precision,
+   since each activation value is saved using 8 decimal places. Concretely, this
+   results in a jsonl file, where each line is a json string corresponding to a
+   single sentence. The structure of each line is as follows:
+
+   * ``linex_idx``: Sentence index
+   * ``features``: List of tokens (with their activations)
+
+     * ``token``: The current token
+     * ``layers``: List of layers
+
+       * ``index``: Layer index (does not correspond to original model's layers)
+       * ``values``: List of activation values for all neurons in the layer
+
+The writers also support saving activations from specific layers only, using the
+``filter_layers`` argument. Since activation files can be large, an additional
+option for decomposing the representations into layer-wise files is also
+provided.
+"""
+
 import argparse
 import collections
 import json
@@ -6,26 +40,59 @@ import h5py
 
 
 class ActivationsWriter:
-    def __init__(self, filename, filetype=None, decompose_layers=False, filter_layers=None):
+    """
+    Class that encapsulates all available writers.
+
+    This is the only class that should be used by the rest of the library.
+
+    Attributes
+    ----------
+    filename : str
+        Filename for storing the activations. May not be used exactly if
+        ``decompose_layers`` is True.
+    filetype : str
+        An additional hint for the filetype. This argument is optional
+        The file type will be detected automatically from the filename if
+        none is supplied.
+    decompose_layers : bool
+        Set to true if each layer's activations should be saved in a
+        separate file.
+    filter_layers : str
+        Comma separated list of layer indices to save.
+    """
+
+    def __init__(
+        self, filename, filetype=None, decompose_layers=False, filter_layers=None
+    ):
         self.filename = filename
         self.decompose_layers = decompose_layers
         self.filter_layers = filter_layers
 
     def open(self):
+        """
+        Method to open the underlying files. Will be called automatically
+        by the class instance when necessary.
+        """
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
     def write_activations(self, sentence_idx, extracted_words, activations):
+        """Method to write a single sentence's activations to file"""
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
     def close(self):
+        """Method to close the udnerlying files."""
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
     @staticmethod
     def get_writer(filename, filetype=None, decompose_layers=False, filter_layers=None):
-        return DecomposableActivationsWriter(filename, filetype, decompose_layers, filter_layers)
+        """Method to get the correct writer based on filename and filetype"""
+        return ActivationsWriterManager(
+            filename, filetype, decompose_layers, filter_layers
+        )
 
     @staticmethod
     def add_writer_options(parser):
+        """Method to return argparse arguments specific to activation writers"""
         parser.add_argument(
             "--output_type",
             choices=["autodetect", "hdf5", "json"],
@@ -45,9 +112,25 @@ class ActivationsWriter:
         )
 
 
-class DecomposableActivationsWriter(ActivationsWriter):
-    def __init__(self, filename, filetype=None, decompose_layers=False, filter_layers=None):
-        super().__init__(filename, filetype=filetype, decompose_layers=decompose_layers, filter_layers=filter_layers)
+class ActivationsWriterManager(ActivationsWriter):
+    """
+    Manager class that handles decomposition and filtering.
+
+    Decomposition requires multiple writers (one per file) and filtering
+    requires processing the activations to remove unneeded layer activations.
+    This class sits on top of the actual activations writer to manage these
+    operations.
+    """
+
+    def __init__(
+        self, filename, filetype=None, decompose_layers=False, filter_layers=None
+    ):
+        super().__init__(
+            filename,
+            filetype=filetype,
+            decompose_layers=decompose_layers,
+            filter_layers=filter_layers,
+        )
 
         if filename.endswith(".hdf5") or filetype == "hdf5":
             self.base_writer = HDF5ActivationsWriter
@@ -82,19 +165,26 @@ class DecomposableActivationsWriter(ActivationsWriter):
 
         if self.decompose_layers:
             for writer_idx, layer_idx in enumerate(self.layers):
-                self.writers[writer_idx].write_activations(sentence_idx, extracted_words, activations[layer_idx, :, :])
+                self.writers[writer_idx].write_activations(
+                    sentence_idx, extracted_words, activations[layer_idx, :, :]
+                )
         else:
-            self.writers[0].write_activations(sentence_idx, extracted_words, activations[self.layers, :, :])
+            self.writers[0].write_activations(
+                sentence_idx, extracted_words, activations[self.layers, :, :]
+            )
 
     def close(self):
         for writer in self.writers:
             writer.close()
 
+
 class HDF5ActivationsWriter(ActivationsWriter):
     def __init__(self, filename):
         super().__init__(filename, filetype="hdf5")
         if not self.filename.endswith(".hdf5"):
-            raise ValueError(f"Output filename ({self.filename}) does not end with .hdf5, but output file type is hdf5.")
+            raise ValueError(
+                f"Output filename ({self.filename}) does not end with .hdf5, but output file type is hdf5."
+            )
         self.activations_file = None
 
     def open(self):
@@ -131,7 +221,9 @@ class JSONActivationsWriter(ActivationsWriter):
     def __init__(self, filename):
         super().__init__(filename, filetype="json")
         if not self.filename.endswith(".json"):
-            raise ValueError(f"Output filename ({self.filename}) does not end with .json, but output file type is json.")
+            raise ValueError(
+                f"Output filename ({self.filename}) does not end with .json, but output file type is json."
+            )
 
         self.activations_file = None
 

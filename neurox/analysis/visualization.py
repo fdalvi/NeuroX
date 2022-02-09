@@ -69,7 +69,7 @@ def visualize_activations(
     text_direction="ltr",
     char_limit=60,
     font_size=20,
-    filter_fn=lambda x: x
+    filter_fn=lambda x: x,
 ):
     """
     Visualize activation values for a particular neuron on some text.
@@ -105,9 +105,10 @@ def visualize_activations(
         None resulting in keeping the activations as is. If fn is provided, it
         must accept a list of activations and return a list of exactly the same
         number of elements. str choices are currently:
-            'top_tokens': Only highlights tokens whose activation values are within
-                80% of the top activating token in a given sentence. Absolute values
-                are used for comparison.
+
+        * ``top_tokens``: Only highlights tokens whose activation values are within
+          80% of the top activating token in a given sentence. Absolute values
+          are used for comparison.
 
     Returns
     -------
@@ -129,10 +130,12 @@ def visualize_activations(
 
     ################################ Filtering ################################
     if filter_fn == "top_tokens":
+
         def keep_top_tokens(acts):
             max_val = max([abs(a) for a in acts])
             new_acts = [a if abs(a) > 0.8 * max_val else 0 for a in acts]
             return new_acts
+
         filter_fn = keep_top_tokens
     activations_filtered = filter_fn(activations)
     assert len(activations) == len(activations_filtered)
