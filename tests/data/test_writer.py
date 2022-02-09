@@ -2,7 +2,7 @@ import json
 import unittest
 
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
 import h5py
 import torch
@@ -101,15 +101,16 @@ class TestHDF5DuplicateSentences(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def test_duplicate_sentence_hdf5(self):
-        "File should auto open on first write_activations call if not already open"
+        "Duplicated sentences should we stored with occurence index"
         output_file = f"{self.tmpdir.name}/somename.hdf5"
         writer = HDF5ActivationsWriter(output_file)
 
-        sentences = ["This is a sentence", "This is a another sentence", "This is a sentence"]
+        sentences = ["This is a sentence", "This is a another sentence", "This is a sentence", "This is a sentence"]
         expected_sentences = [
             sentences[0],
             sentences[1],
-            f"{sentences[0]} (Occurrence 2)"
+            f"{sentences[0]} (Occurrence 2)",
+            f"{sentences[0]} (Occurrence 3)"
         ]
         expected_activations = [
             torch.rand((13, len(sentence.split(" ")), 768)) for sentence in sentences
@@ -120,7 +121,7 @@ class TestHDF5DuplicateSentences(unittest.TestCase):
         
         writer.close()
 
-        saved_activations = h5py.File(output_file)
+        saved_activations = h5py.File(output_file, "r")
 
         # Check hdf5 structure
         self.assertEqual(len(saved_activations.keys()), len(sentences) + 1)
@@ -139,3 +140,12 @@ class TestHDF5DuplicateSentences(unittest.TestCase):
         for sentence in sentence_to_index:
             idx = sentence_to_index[sentence]
             self.assertTrue(torch.equal(torch.FloatTensor(saved_activations[idx]), expected_activations[int(idx)]))
+
+class TestWriterOptions(unittest.TestCase):
+    @patch("argparse.ArgumentParser")
+    def test_options_added(self, parser_mock):
+        ActivationsWriter.add_writer_options(parser_mock)
+
+        parser_mock.add_argument.assert_any_call("--output_type", choices=ANY, help=ANY, default=ANY)
+        parser_mock.add_argument.assert_any_call("--decompose_layers", action=ANY, help=ANY,)
+        parser_mock.add_argument.assert_any_call("--filter_layers", help=ANY, default=ANY, type=ANY)
