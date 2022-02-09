@@ -5,49 +5,92 @@ import h5py
 
 
 class ActivationsWriter:
-    def __init__(self, filename, filetype=None):
-        self.activations_file = None
+    def __init__(self, filename, filetype=None, decompose_layers=False, filter_layers=None):
         self.filename = filename
+        self.decompose_layers = decompose_layers
+        self.filter_layers = filter_layers
 
-    def open_file(self):
+    def open(self):
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
     def write_activations(self, sentence_idx, extracted_words, activations):
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
-    def close_file(self):
+    def close(self):
         raise NotImplementedError("Use a specific writer or the `get_writer` method.")
 
     @staticmethod
-    def get_writer(filename, filetype=None):
+    def get_writer(filename, filetype=None, decompose_layers=False, filter_layers=None):
+        return DecomposableActivationsWriter(filename, filetype, decompose_layers, filter_layers)
+
+
+class DecomposableActivationsWriter(ActivationsWriter):
+    def __init__(self, filename, filetype=None, decompose_layers=False, filter_layers=None):
+        super().__init__(filename, filetype=filetype, decompose_layers=decompose_layers, filter_layers=filter_layers)
+
         if filename.endswith(".hdf5") or filetype == "hdf5":
-            return HDF5ActivationsWriter(filename)
+            self.base_writer = HDF5ActivationsWriter
         elif filename.endswith(".json") or filetype == "json":
-            return JSONActivationsWriter(filename)
+            self.base_writer = JSONActivationsWriter
         else:
             raise NotImplementedError("filetype not supported. Use `hdf5` or `json`.")
 
+        self.filename = filename
+        self.layers = None
+        self.writers = None
+
+    def open(self, num_layers):
+        self.layers = list(range(num_layers))
+        self.writers = []
+        if self.filter_layers:
+            self.layers = [int(l) for l in self.filter_layers.split(",")]
+        if self.decompose_layers:
+            for layer_idx in self.layers:
+                local_filename = f"{self.filename[:-5]}-layer{layer_idx}.hdf5"
+                _writer = self.base_writer(local_filename)
+                _writer.open()
+                self.writers.append(_writer)
+        else:
+            _writer = self.base_writer(self.filename)
+            _writer.open()
+            self.writers.append(_writer)
+
+    def write_activations(self, sentence_idx, extracted_words, activations):
+        if self.writers is None:
+            self.open(activations.shape[0])
+
+        if self.decompose_layers:
+            for writer_idx, layer_idx in enumerate(self.layers):
+                self.writers[writer_idx].write_activations(sentence_idx, extracted_words, activations[layer_idx, :, :])
+        else:
+            self.writers[0].write_activations(sentence_idx, extracted_words, activations[self.layers, :, :])
+
+    def close(self):
+        for writer in self.writers:
+            writer.close()
 
 class HDF5ActivationsWriter(ActivationsWriter):
     def __init__(self, filename):
         super().__init__(filename, filetype="hdf5")
-
-    def open_file(self):
         if not self.filename.endswith(".hdf5"):
-            print(
-                "[WARNING] Output filename (%s) does not end with .hdf5, but output file type is hdf5."
-                % (self.filename)
-            )
+            raise ValueError(f"Output filename ({self.filename}) does not end with .hdf5, but output file type is hdf5.")
+        self.activations_file = None
+
+    def open(self):
         self.activations_file = h5py.File(self.filename, "w")
         self.sentence_to_index = {}
 
     def write_activations(self, sentence_idx, extracted_words, activations):
+        if self.activations_file is None:
+            self.open()
+
         self.activations_file.create_dataset(
             str(sentence_idx), activations.shape, dtype="float32", data=activations
         )
 
         # TODO: Replace with better implementation with list of indices
-        final_sentence = " ".join(extracted_words)
+        sentence = " ".join(extracted_words)
+        final_sentence = sentence
         counter = 1
         while final_sentence in self.sentence_to_index:
             counter += 1
@@ -55,7 +98,7 @@ class HDF5ActivationsWriter(ActivationsWriter):
         sentence = final_sentence
         self.sentence_to_index[sentence] = str(sentence_idx)
 
-    def close_file(self):
+    def close(self):
         sentence_index_dataset = self.activations_file.create_dataset(
             "sentence_to_index", (1,), dtype=h5py.special_dtype(vlen=str)
         )
@@ -66,16 +109,18 @@ class HDF5ActivationsWriter(ActivationsWriter):
 class JSONActivationsWriter(ActivationsWriter):
     def __init__(self, filename):
         super().__init__(filename, filetype="json")
-
-    def open_file(self):
         if not self.filename.endswith(".json"):
-            print(
-                "[WARNING] Output filename (%s) does not end with .json, but output file type is json."
-                % (self.filename)
-            )
+            raise ValueError(f"Output filename ({self.filename}) does not end with .json, but output file type is json.")
+
+        self.activations_file = None
+
+    def open(self):
         self.activations_file = open(self.filename, "w", encoding="utf-8")
 
     def write_activations(self, sentence_idx, extracted_words, activations):
+        if self.activations_file is None:
+            self.open()
+
         output_json = collections.OrderedDict()
         output_json["linex_index"] = sentence_idx
         all_out_features = []
@@ -96,5 +141,5 @@ class JSONActivationsWriter(ActivationsWriter):
         output_json["features"] = all_out_features
         self.activations_file.write(json.dumps(output_json) + "\n")
 
-    def close_file(self):
+    def close(self):
         self.activations_file.close()
