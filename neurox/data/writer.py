@@ -1,3 +1,4 @@
+import argparse
 import collections
 import json
 
@@ -22,6 +23,26 @@ class ActivationsWriter:
     @staticmethod
     def get_writer(filename, filetype=None, decompose_layers=False, filter_layers=None):
         return DecomposableActivationsWriter(filename, filetype, decompose_layers, filter_layers)
+
+    @staticmethod
+    def add_writer_options(parser):
+        parser.add_argument(
+            "--output_type",
+            choices=["autodetect", "hdf5", "json"],
+            default="autodetect",
+            help="Output format of the extracted representations. Default autodetects based on file extension.",
+        )
+        parser.add_argument(
+            "--decompose_layers",
+            action="store_true",
+            help="Save activations from each layer in a separate file",
+        )
+        parser.add_argument(
+            "--filter_layers",
+            default=None,
+            type=str,
+            help="Comma separated list of layers to save activations for. The layers will be saved in the order specified in this argument.",
+        )
 
 
 class DecomposableActivationsWriter(ActivationsWriter):
