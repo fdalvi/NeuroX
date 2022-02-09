@@ -619,7 +619,7 @@ class TestSaving(unittest.TestCase):
 
         transformers_extractor.extract_representations("non-existant model", self.input_file, output_file, output_type="hdf5")
 
-        saved_activations = h5py.File(output_file)
+        saved_activations = h5py.File(output_file, "r")
 
         # Check hdf5 structure
         self.assertEqual(len(saved_activations.keys()), len(self.test_sentences) + 1)
@@ -721,7 +721,7 @@ class TestSaving(unittest.TestCase):
 
         transformers_extractor.extract_representations("non-existant model", self.input_file, output_file, filter_layers=",".join(map(str,filter_layers)))
 
-        saved_activations = h5py.File(output_file)
+        saved_activations = h5py.File(output_file, "r")
 
         # Check hdf5 structure
         self.assertEqual(len(saved_activations.keys()), len(self.test_sentences) + 1)
