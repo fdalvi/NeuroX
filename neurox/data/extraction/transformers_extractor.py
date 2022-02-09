@@ -259,6 +259,8 @@ def extract_representations(
     output_type="json",
     random_weights=False,
     ignore_embeddings=False,
+    decompose_layers=False,
+    filter_layers=None,
 ):
     print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
@@ -274,8 +276,7 @@ def extract_representations(
             return
 
     print("Preparing output file")
-    writer = ActivationsWriter.get_writer(output_file, filetype=output_type)
-    writer.open_file()
+    writer = ActivationsWriter.get_writer(output_file, filetype=output_type, decompose_layers=decompose_layers, filter_layers=filter_layers)
 
     print("Extracting representations from model")
     tokenization_counts = {} # Cache for tokenizer rules
@@ -295,7 +296,7 @@ def extract_representations(
 
         writer.write_activations(sentence_idx, extracted_words, hidden_states)
 
-    writer.close_file()
+    writer.close()
 
 
 HDF5_SPECIAL_TOKENS = {".": "__DOT__", "/": "__SLASH__"}
@@ -318,9 +319,9 @@ def main():
     )
     parser.add_argument(
         "--output-type",
-        choices=["hdf5", "json"],
-        default="json",
-        help="Output format of the extracted representations",
+        choices=["autodetect", "hdf5", "json"],
+        default="autodetect",
+        help="Output format of the extracted representations. Default autodetects based on file extension.",
     )
     parser.add_argument("--disable_cuda", action="store_true")
     parser.add_argument("--ignore_embeddings", action="store_true")
@@ -329,6 +330,17 @@ def main():
         action="store_true",
         help="generate representations from randomly initialized model",
     )
+    parser.add_argument(
+        "--decompose_layers",
+        action="store_true",
+        help="Save activations from each layer in a separate file",
+    )
+    parser.add_argument(
+        "--filter_layers",
+        default=None,
+        type="str",
+        help="Comma separated list of layers to save activations for. The layers will be saved in the order specified in this argument.",
+    )
     args = parser.parse_args()
 
     assert args.aggregation in [
@@ -336,6 +348,8 @@ def main():
         "first",
         "last",
     ], "Invalid aggregation option, please specify first, average or last."
+
+    assert not(args.filter_layers is not None and args.ignore_embeddings is True), "--filter_layers and --ignore_embeddings cannot be used at the same time"
 
     if not args.disable_cuda and torch.cuda.is_available():
         device = torch.device("cuda")
