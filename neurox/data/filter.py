@@ -1,22 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
-import codecs
-import h5py
-import json
-import re
-import collections
-import numpy as np
-
 """Create a binary word-level data set using a set of positive examples, or a regular expression or a function
 Author: Hassan Sajjad
 Last Modified: 4 July, 2021
 """
 
-def create_concept_data(tokens, activations, concept_filter, num_layers, outputfile):
+import re
+import collections
+import numpy as np
+
+def create_binary_data(tokens, activations, binary_filter, num_layers, outputfile):
     """
     Given a set of sentences and per word activations, create a binary dataset using the provided pattern of the
     positive class. A pattern can be a set of words, a regex object or a function
@@ -27,7 +18,7 @@ def create_concept_data(tokens, activations, concept_filter, num_layers, outputf
         A dictonary of sentences with their dummy labels. The format is the output of the data_loader.load_data function
     activations: list
         A list of sentence-wise activations 
-    concept_filter: a set of words or a regex object or a function
+    binary_filter: a set of words or a regex object or a function
     num_layers: number of layers
     
     Returns
@@ -36,35 +27,34 @@ def create_concept_data(tokens, activations, concept_filter, num_layers, outputf
     
     Example
     -------
-    create_concept_data(tokens, activations, re.compile(r'^\w\w$'), 12) select words of two characters only as a positive class
-    create_concept_data(tokens, activations, {'is', 'can'}, 12) select occrrences of 'is' and 'can' as a positive class
+    create_binary_data(tokens, activations, re.compile(r'^\w\w$'), 12) select words of two characters only as a positive class
+    create_binary_data(tokens, activations, {'is', 'can'}, 12) select occrrences of 'is' and 'can' as a positive class
     """
     
     filter_fn = None
-    if isinstance(concept_filter, set):
-        filter_fn = lambda x: x in concept_filter
-    elif isinstance(concept_filter, re.Pattern):
-        filter_fn = lambda x: concept_filter.match(x)
-    elif isinstance(concept_filter, collections.Callable):
-        filter_fn = concept_filter
+    if isinstance(binary_filter, set):
+        filter_fn = lambda x: x in binary_filter
+    elif isinstance(binary_filter, re.Pattern):
+        filter_fn = lambda x: binary_filter.match(x)
+    elif isinstance(binary_filter, collections.Callable):
+        filter_fn = binary_filter
     else:
-        print ("ERROR: doest not belong to any configuration")
-        return
+        raise NotImplementedError("ERROR: does not belong to any configuration")
         
     positive_class_words = []
     positive_class_activations = []
     negative_class_words = []    
     negative_class_activations = []
     
-    print ("Creating concept dataset ...")
-    for sidx, sentences in enumerate(tokens['source']):
-        for widx, word in enumerate(sentences):
+    print ("Creating binary dataset ...")
+    for s_idx, sentences in enumerate(tokens['source']):
+        for w_idx, word in enumerate(sentences):
             if filter_fn(word):
                 positive_class_words.append(word)
-                positive_class_activations.append(activations[sidx][widx].reshape((num_layers, 1, -1)))
+                positive_class_activations.append(activations[s_idx][w_idx].reshape((num_layers, 1, -1)))
             else:
                 negative_class_words.append(word)
-                negative_class_activations.append(activations[sidx][widx].reshape((num_layers, 1, -1)))
+                negative_class_activations.append(activations[s_idx][w_idx].reshape((num_layers, 1, -1)))
 
     negative_class_words, negative_class_activations = _balance_negative_class(negative_class_words, negative_class_activations, len(positive_class_words))    
     
@@ -126,11 +116,11 @@ def save_files(words, labels, activations, outputfile):
     
     """ 
     
-    with codecs.open(outputfile+".word", "w", "utf-8") as file:
+    with open(outputfile+".word", "w") as file:
         print(*words, sep = "\n", file = file)
         file.close()
 
-    with codecs.open(outputfile+".label", "w", "utf-8") as file:
+    with open(outputfile+".label", "w") as file:
         print(*labels, sep = "\n", file = file)
         file.close()
     
