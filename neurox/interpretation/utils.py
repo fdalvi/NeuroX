@@ -139,7 +139,7 @@ def count_target_words(tokens):
 
 
 def create_tensors(
-    tokens, activations, task_specific_tag, mappings=None, task_type="classification"
+    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balance_data = False
 ):
     """
     Method to pre-process loaded datasets into tensors that can be used to train
@@ -172,6 +172,14 @@ def create_tensors(
     task_type : str
         Either "classification" or "regression", indicate the kind of task that
         is being probed.
+    binarized_tag : str, optional
+        Tag/Label to create binary data. All other labels in the dataset are changed
+        to OTHER. Defaults to None in which case the data labels are processed as-is.
+    balance_data : bool, optional
+        Whether the incoming data should be balanced. Data is balanced using 
+        utils.balance_binary_class_data for binary data and utils.balance_multi_class_data
+        for multi-class data using undersampling. Defaults to False.
+
 
     Returns
     -------
@@ -211,8 +219,13 @@ def create_tensors(
             src2idx, idx2src = mappings
     else:
         if task_type == "classification":
-            label2idx = tok2idx(target_tokens)
-            idx2label = idx2tok(label2idx)
+            if binarized_tag:                
+                label2idx = {binarized_tag: 1, "OTHER": 0}
+                idx2label = {1: binarized_tag, 0: "OTHER"}
+            else:
+                label2idx = tok2idx(target_tokens)
+                idx2label = idx2tok(label2idx)
+
         src2idx = tok2idx(source_tokens)
         idx2src = idx2tok(src2idx)
 
@@ -236,13 +249,16 @@ def create_tensors(
 
             example_set.add(source_tokens[instance_idx][token_idx])
             if task_type == "classification":
+                current_target_token = target_tokens[instance_idx][token_idx]
+                if binarized_tag and current_target_token != binarized_tag:
+                    current_target_token = "OTHER"
                 if (
                     mappings is not None
-                    and target_tokens[instance_idx][token_idx] not in label2idx
+                    and current_target_token not in label2idx
                 ):
                     y[idx] = label2idx[task_specific_tag]
                 else:
-                    y[idx] = label2idx[target_tokens[instance_idx][token_idx]]
+                    y[idx] = label2idx[current_target_token]
             elif task_type == "regression":
                 y[idx] = float(target_tokens[instance_idx][token_idx])
 
@@ -251,6 +267,22 @@ def create_tensors(
     print(idx)
     print("Total instances: %d" % (num_tokens))
     print(list(example_set)[:20])
+
+    print ("Number of samples: ", X.shape[0])
+
+    if balance_data:
+        print ("Balancing data ... ")
+        if binarized_tag:
+            X, y = balance_binary_class_data(X, y)
+        else:
+            X, y = balance_multi_class_data(X, y)
+        print ("Number of samples after balancing: ", X.shape[0])
+
+    labels, freqs = np.unique(y, return_counts=True)
+
+    print ("Stats: Labels with their frequencies in the final set")
+    for idx, label in enumerate(labels):
+        print (idx2label[label], freqs[idx])
 
     if task_type == "classification":
         return X, y, (label2idx, idx2label, src2idx, idx2src)
@@ -464,6 +496,7 @@ def balance_binary_class_data(X, y):
     """
     Method to balance binary class data.
 
+    .. note::
     The majority class is under-sampled randomly to match the minority class in
     it's size.
 
@@ -494,6 +527,7 @@ def balance_multi_class_data(X, y, num_required_instances=None):
     """
     Method to balance multi class data.
 
+    .. note::
     All classes are under-sampled randomly to match the minority class in
     their size. If ``num_required_instances`` is provided, all classes are
     sampled proportionally so that the total number of selected examples is
