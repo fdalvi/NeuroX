@@ -139,7 +139,7 @@ def count_target_words(tokens):
 
 
 def create_tensors(
-    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balanced = False
+    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balance_data = False
 ):
     """
     Method to pre-process loaded datasets into tensors that can be used to train
@@ -172,6 +172,11 @@ def create_tensors(
     task_type : str
         Either "classification" or "regression", indicate the kind of task that
         is being probed.
+    binarized_tag : str
+        Specify Tag/Label to create binary data e.g. NN for noun data
+    balance_data : bool
+        Flag to balance the data
+
 
     Returns
     -------
@@ -232,7 +237,7 @@ def create_tensors(
         y = np.zeros((num_tokens,), dtype=np.float32)
 
     example_set = set()
-    
+
     idx = 0
     for instance_idx, instance in enumerate(target_tokens):
         for token_idx, _ in enumerate(instance):
@@ -260,17 +265,21 @@ def create_tensors(
     print("Total instances: %d" % (num_tokens))
     print(list(example_set)[:20])
 
-    print ("Shape of X", X.shape)
+    print ("Number of samples: ", X.shape[0])
 
-    if balanced:
+    if balance_data:
         print ("Balancing data ... ")
         if binarized_tag:
             X, y = balance_binary_class_data(X, y)
         else:
             X, y = balance_multi_class_data(X, y)
-        print ("Shape of X", X.shape)
+        print ("Number of samples after balancing: ", X.shape[0])
 
-    print ("Labels, frequencies: ", np.unique(y, return_counts=True))
+    labels, freqs = np.unique(y, return_counts=True)
+
+    print ("Stats: Labels with their frequencies in the final set")
+    for idx, label in enumerate(labels):
+        print (idx2label[label], freqs[idx])
 
     if task_type == "classification":
         return X, y, (label2idx, idx2label, src2idx, idx2src)
