@@ -172,10 +172,13 @@ def create_tensors(
     task_type : str
         Either "classification" or "regression", indicate the kind of task that
         is being probed.
-    binarized_tag : str
-        Specify Tag/Label to create binary data e.g. NN for noun data
-    balance_data : bool
-        Flag to balance the data
+    binarized_tag : str, optional
+        Tag/Label to create binary data. All other labels in the dataset are changed
+        to OTHER. Defaults to None in which case the data labels are processed as-is.
+    balance_data : bool, optional
+        Whether the incoming data should be balanced. Data is balanced using 
+        utils.balance_binary_class_data for binary data and utils.balance_multi_class_data
+        for multi-class data using undersampling. Defaults to False.
 
 
     Returns
