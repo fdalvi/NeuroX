@@ -1,9 +1,0 @@
-Step 1:Download and Prepare Data
-
-sh prepareSetup.sh
-
-Step 2:Extract Representations
-
-sh extractEmbeddings.sh
-
-Step 3: Run 
