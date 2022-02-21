@@ -1,13 +1,26 @@
-"""Create a binary word-level data set using a set of positive examples, or a regular expression or a function
+"""Given a list of sentence and their activations, create a binary labeled dataset based on a
+regular expression, a list of words and a fuction. 
+For example, one can create a binary dataset of years vs. not-years (2004 vs. this) by specifying the regular expression
+that matches the pattern of year. 
+The program will extract positive examples based on the provided filter and will randomly extract negative examples
+of the same size as that of the positive examples. The output of the program is a word file, a label file and an activation file.
+
 Author: Hassan Sajjad
 Last Modified: 4 July, 2021
+Last Modified: 21 February, 2022
 """
 
 import re
 import collections
 import numpy as np
+import argparse
+import sys
 
-def create_binary_data(tokens, activations, binary_filter, num_layers, outputfile):
+from neurox.data.writer import ActivationsWriter
+import neurox.data.loader as data_loader
+
+def _create_binary_data(tokens, activations, binary_filter, num_layers, output_file, output_type="autodetect", decompose_layers=False,
+    filter_layers=None,):
     """
     Given a set of sentences and per word activations, create a binary dataset using the provided pattern of the
     positive class. A pattern can be a set of words, a regex object or a function
@@ -23,7 +36,7 @@ def create_binary_data(tokens, activations, binary_filter, num_layers, outputfil
     
     Returns
     -------
-    Saves a word file, a binay label file and their activations
+    Saves a word file, a binary label file and their activations
     
     Example
     -------
@@ -62,7 +75,8 @@ def create_binary_data(tokens, activations, binary_filter, num_layers, outputfil
     
     labels = (['positive']*len(positive_class_words)) + ['negative']*len(positive_class_words)
     
-    save_files(positive_class_words+negative_class_words, labels, positive_class_activations+negative_class_activations, outputfile)
+    save_files(positive_class_words+negative_class_words, labels, positive_class_activations+negative_class_activations, output_file, output_type, decompose_layers,
+    filter_layers)
     
     
 def _balance_negative_class(words, activations, positive_class_size):
@@ -95,7 +109,7 @@ def _balance_negative_class(words, activations, positive_class_size):
     
     return swords, sactivations
     
-def save_files(words, labels, activations, outputfile):
+def save_files(words, labels, activations, output_file, output_type, decompose_layers, filter_layers):
     
     """
     Save word and label file in text format and activations in hdf5 format
@@ -115,38 +129,53 @@ def save_files(words, labels, activations, outputfile):
     Save word, label and activation files
     
     """ 
-    
-    with open(outputfile+".word", "w") as file:
+    print("Preparing output files")
+
+    with open(output_file+".word", "w") as file:
         print(*words, sep = "\n", file = file)
         file.close()
 
-    with open(outputfile+".label", "w") as file:
+    with open(output_file+".label", "w") as file:
         print(*labels, sep = "\n", file = file)
         file.close()
     
-    h5py_path = outputfile+".hdf5"
-    with h5py.File(h5py_path, "w") as output_file:
-        sentence_to_index = {}
-        for word_idx, word in enumerate(words):
-            output_file.create_dataset(
-                str(word_idx),
-                activations[word_idx].shape,
-                dtype="float32",
-                data=activations[word_idx],
-            )
-            # TODO: Replace with better implementation with list of indices
-            final_sentence = word
-            counter = 1
-            while final_sentence in sentence_to_index:
-                counter += 1
-                final_sentence = f"{sentence} (Occurrence {counter})"
-            sentence = final_sentence
-            sentence_to_index[sentence] = str(word_idx)
+    writer = ActivationsWriter.get_writer(output_file, filetype=output_type, decompose_layers=decompose_layers, filter_layers=filter_layers)
 
-        sentence_index_dataset = output_file.create_dataset(
-            "sentence_to_index", (1,), dtype=h5py.special_dtype(vlen=str)
-        )
-        sentence_index_dataset[0] = json.dumps(sentence_to_index)
-    output_file.close()
-    print ("Saved .word, .label. and .hdf5 files with prefix -> ", outputfile)
+    for word_idx, word in enumerate(words):
+        writer.write_activations(word_idx, [word], activations[word_idx])
 
+    writer.close()
+
+
+def annotate_data(sentences, activations)
+
+    activations, num_layers = data_loader.load_activations(activations, 768)
+    # giving sentences instead of labels since labels will be generated later
+    tokens = data_loader.load_data(sentences, sentences, activations, 512)
+
+    _create_binary_data(tokens, activations, binary_filter, num_layers, output_file, output_type="autodetect", decompose_layers=False,
+    filter_layers=None,)
+
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_file", help="Text file path with one sentene per line")
+    parser.add_argument("--activations", help="Activation file")
+    parser.add_argument("--binary_filter", help="A set, pattern or function based on which binary data will be created")
+    parser.add_argument("--out_file", help="Prefix of output file")
+    parser.add_argument("--output_type", help="Type of output activation file, json or hdf5")
+    parser.add_argument("--decompose_layers", help="A boolean value to specify if a layers need to be save separately")
+    parser.add_argument("--filter_layers", help="Specify a layer if activations of only a particular layer needs to be saved")
+
+    annotate_data(arg.input_file,
+                 arg.activations,
+                 arg.binary_filter,
+                 arg.output_file,
+                 arg.output_type,
+                 arg.decompose_layers,
+                 arg.filter_layers)
+    
+
+    if __name__ == "__main__":
+    main()
