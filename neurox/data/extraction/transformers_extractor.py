@@ -1,15 +1,12 @@
 """Representations Extractor for ``transformers`` toolkit models.
 
-Script that given a file with input sentences and a ``transformers``
+Module that given a file with input sentences and a ``transformers``
 model, extracts representations from all layers of the model. The script
 supports aggregation over sub-words created due to the tokenization of
 the provided model.
 
-Author: Fahim Dalvi
-Last Modified: 2 March, 2020
-Last Modified: 9 September, 2020
-Last Modified: 15 September, 2020
-Last Modified: 1 February, 2020
+Can also be invoked as a script as follows:
+    ``python -m neurox.data.extraction.transformers_extractor``
 """
 
 import argparse
