@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 
 
-def create_seq_labeling_control_task_datasets(train_tokens, sample_from='same', dev_source=None, test_source=None):
+def create_seq_labeling_control_task_datasets(train_tokens, sample_from='same', dev_source=None, test_source=None, case_sensitive=True):
     """
     Method that prepares labels for a control task, as defined in §2.1 of `Hewitt and Liang (2019) <https://aclanthology.org/D19-1275.pdf>` 
 
@@ -18,10 +18,13 @@ def create_seq_labeling_control_task_datasets(train_tokens, sample_from='same', 
         List containing the ``source`` tokens from the development set, as produced by ``dev_tokens['source']``
     test_source : list, optional
         List containing the ``source`` tokens from the test set, as produced by ``test_tokens['source']``
-    sample_from : str
+    sample_from : str, optional
         defaults to 'same'. The distribution from which control task labels are sampled. 
         'same': Labels are sampled from the same distribution as the main task labels.
         'uniform': Labels are sampled from a uniform distribution.
+    case_sensitive: bool, optional
+        defaults to True. Sets whether the token comparison (for assigning the control task labels) is case-sensitive 
+        or case-insensitive.
 
     Returns
     -------
@@ -54,6 +57,7 @@ def create_seq_labeling_control_task_datasets(train_tokens, sample_from='same', 
         for sent in source_dataset:
             ct_labels_for_sent = []
             for tok in sent:
+                tok = tok if case_sensitive else tok.lower()
                 if tok in word_types_to_ct_label:
                     ct_labels_for_sent.append(word_types_to_ct_label[tok])
                 else:
