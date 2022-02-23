@@ -1,9 +1,10 @@
 """Module for Probeless method
 
-This module extracts neuron ranking for a label/tag (e.g Verbs) or for the entire property set (e.g Part of speech).
+This module extracts neuron ranking for a label/tag (e.g Verbs) or for an
+entire property set (e.g Part of speech) without training any probes.
 
 .. seealso::
-        `Antverg, Omer and Belinkov, Yonatan "On The Pitfalls Of Analyzing Idividual Neurons in Language Models." In Proceedings of the 10th International Conference on Learning Representations (ICLR).`_
+        `Antverg, Omer and Belinkov, Yonatan "On The Pitfalls Of Analyzing Idividual Neurons in Language Models." In Proceedings of the 10th International Conference on Learning Representations (ICLR). <https://arxiv.org/abs/2110.07483>`_
 """
 import numpy as np
 import itertools
@@ -54,7 +55,6 @@ def _get_tag_wise_ranking(mean_vectors_by_label, tag):
     return summation, ranking 
 
 def get_neuron_ordering(X_train, y_train):
-
     """
     Returns a list of top neurons w.r.t the overall task e.g. POS
 
@@ -70,7 +70,7 @@ def get_neuron_ordering(X_train, y_train):
     Returns
     -------
     ranking : list
-        list of neurons in decreasing order of importance.
+        list of ``NUM_NEURONS`` neuron indices, in decreasing order of importance.
     """    
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
     ranking = _get_overall_ranking(avg_embeddings)
@@ -78,7 +78,6 @@ def get_neuron_ordering(X_train, y_train):
     return ranking
 
 def get_neuron_ordering_for_tag(X_train, y_train, label2idx, tag):
-
     """
     Returns a list of top neurons w.r.t a tag e.g. noun
 
@@ -99,7 +98,7 @@ def get_neuron_ordering_for_tag(X_train, y_train, label2idx, tag):
     Returns
     -------
     ranking : list
-        list of neurons in decreasing order of importance.
+        list of ``NUM_NEURONS`` neuron indices, in decreasing order of importance.
 
     """
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
@@ -108,7 +107,6 @@ def get_neuron_ordering_for_tag(X_train, y_train, label2idx, tag):
     return ranking
 
 def get_neuron_ordering_for_all_tags(X_train, y_train, idx2label):
-
     """
     Returns a dictionary of tags along with top neurons for each tag
     Returns a list of overall ranking
@@ -128,11 +126,12 @@ def get_neuron_ordering_for_all_tags(X_train, y_train, idx2label):
     Returns
     -------
     overall_ranking : list
-        list of neurons in decreasing order of importance.
+        list of ``NUM_NEURONS`` neuron indices, in decreasing order of importance.
     ranking_per_tag : dict
         Dictionary with top neurons for every class, with the class name as the
-        key and list of neurons in decreasing order of importance. 
+        key and list of neurons as the values.
     """
+    # TODO: switch to label2idx for consistency
     ranking_per_tag = {}
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
 

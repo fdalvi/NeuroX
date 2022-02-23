@@ -497,8 +497,8 @@ def balance_binary_class_data(X, y):
     Method to balance binary class data.
 
     .. note::
-    The majority class is under-sampled randomly to match the minority class in
-    it's size.
+        The majority class is under-sampled randomly to match the minority class
+        in it's size.
 
     Parameters
     ----------
@@ -528,10 +528,10 @@ def balance_multi_class_data(X, y, num_required_instances=None):
     Method to balance multi class data.
 
     .. note::
-    All classes are under-sampled randomly to match the minority class in
-    their size. If ``num_required_instances`` is provided, all classes are
-    sampled proportionally so that the total number of selected examples is
-    approximately ``num_required_instances`` (because of rounding proportions).
+        All classes are under-sampled randomly to match the minority class in
+        their size. If ``num_required_instances`` is provided, all classes are
+        sampled proportionally so that the total number of selected examples is
+        approximately ``num_required_instances`` (because of rounding proportions).
 
     Parameters
     ----------
