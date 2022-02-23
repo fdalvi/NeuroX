@@ -62,7 +62,7 @@ def get_neuron_ordering(X_train, y_train):
     ----------
     X_train : numpy.ndarray
         Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the 
-    output of ``interpretation.utils.create_tensors``
+        output of ``interpretation.utils.create_tensors``
     y_train : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. Usually the output of ``interpretation.utils.create_tensors``.
@@ -70,7 +70,7 @@ def get_neuron_ordering(X_train, y_train):
     Returns
     -------
     ranking : list
-
+        list of neurons in decreasing order of importance.
     """    
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
     ranking = _get_overall_ranking(avg_embeddings)
@@ -85,8 +85,8 @@ def get_neuron_ordering_for_tag(X_train, y_train, label2idx, tag):
     Parameters
     ----------
     X_train : numpy.ndarray
-    Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the 
-    output of ``interpretation.utils.create_tensors``
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the 
+        output of ``interpretation.utils.create_tensors``
     y_train : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. Usually the output of ``interpretation.utils.create_tensors``.
@@ -99,6 +99,7 @@ def get_neuron_ordering_for_tag(X_train, y_train, label2idx, tag):
     Returns
     -------
     ranking : list
+        list of neurons in decreasing order of importance.
 
     """
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
@@ -115,8 +116,8 @@ def get_neuron_ordering_for_all_tags(X_train, y_train, idx2label):
     Parameters
     ----------
     X_train : numpy.ndarray
-    Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the 
-    output of ``interpretation.utils.create_tensors``
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the 
+        output of ``interpretation.utils.create_tensors``
     y_train : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. Usually the output of ``interpretation.utils.create_tensors``.
@@ -126,9 +127,11 @@ def get_neuron_ordering_for_all_tags(X_train, y_train, idx2label):
 
     Returns
     -------
-    ranking : list
-    overall_ranking : dict
-
+    overall_ranking : list
+        list of neurons in decreasing order of importance.
+    ranking_per_tag : dict
+        Dictionary with top neurons for every class, with the class name as the
+        key and list of neurons in decreasing order of importance. 
     """
     ranking_per_tag = {}
     avg_embeddings, average_embeddings_by_label = _get_mean_vectors(X_train, y_train)
