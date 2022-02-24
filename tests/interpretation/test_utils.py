@@ -168,10 +168,7 @@ class TestCreateTensors(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.num_neurons = 72
-
-    def test_create_tensors(self):
-        "Create tensors basic test"
-        tokens = {
+        cls.tokens = {
             "source": [
                 ["This", "is", "a", "sentence", "."],
                 ["Over", "there", "!"],
@@ -182,18 +179,41 @@ class TestCreateTensors(unittest.TestCase):
             ]
         }
 
+    def test_create_tensors_float32(self):
+        "Create tensors basic test. float32 in, float32 out (default)"
+
+
         activations = [
-            np.random.random((len(tokens["source"][0]), self.num_neurons)),
-            np.random.random((len(tokens["source"][1]), self.num_neurons)),
+            np.random.random((len(self.tokens["source"][0]), self.num_neurons)).astype('float32'),
+            np.random.random((len(self.tokens["source"][1]), self.num_neurons)).astype('float32'),
         ]
 
-        X, y, mapping = utils.create_tensors(tokens, activations, "class2")
+        X, y, mapping = utils.create_tensors(self.tokens, activations, "class2")
 
         global_token_count = 0
         for activation in activations:
             for local_token_count in range(activation.shape[0]):
-                np.testing.assert_array_almost_equal(activation[local_token_count, :], X[global_token_count, :])
+                np.testing.assert_array_almost_equal(activation[local_token_count, :], X[global_token_count, :], decimal=3)
                 global_token_count += 1
+                self.assertEqual(X.dtype, 'float32')
+
+    def test_create_tensors_float32_to_float16(self):
+        "Create tensors basic test. float32 in, float16 out"
+
+
+        activations = [
+            np.random.random((len(self.tokens["source"][0]), self.num_neurons)).astype('float32'),
+            np.random.random((len(self.tokens["source"][1]), self.num_neurons)).astype('float32'),
+        ]
+
+        X, y, mapping = utils.create_tensors(self.tokens, activations, "class2", x_dtype='float16')
+
+        global_token_count = 0
+        for activation in activations:
+            for local_token_count in range(activation.shape[0]):
+                np.testing.assert_array_almost_equal(activation[local_token_count, :], X[global_token_count, :], decimal=3)
+                global_token_count += 1
+                self.assertEqual(X.dtype, 'float16')
 
 class TestPrintHelpers(unittest.TestCase):
     @classmethod

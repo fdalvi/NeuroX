@@ -123,7 +123,8 @@ def extract_sentence_representations(
     device="cpu",
     include_embeddings=True,
     aggregation="last",
-    tokenization_counts={}
+    tokenization_counts={},
+    dtype='float32'
 ):
     """
     Get representations for one sentence
@@ -173,7 +174,7 @@ def extract_sentence_representations(
                 hidden_states[0].cpu().numpy()
                 for hidden_states in all_hidden_states[1:]
             ]
-        all_hidden_states = np.array(all_hidden_states)
+        all_hidden_states = np.array(all_hidden_states).astype(dtype)
 
     print('Sentence         : "%s"' % (sentence))
     print("Original    (%03d): %s" % (len(original_tokens), original_tokens))
@@ -207,7 +208,8 @@ def extract_sentence_representations(
     counter = 0
     detokenized = []
     final_hidden_states = np.zeros(
-        (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2])
+        (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2]),
+        dtype=dtype
     )
     inputs_truncated = False
 
@@ -243,7 +245,6 @@ def extract_sentence_representations(
         assert counter == len(ids_without_special_tokens)
         assert len(detokenized) == len(original_tokens)
     print("===================================================================")
-
     return final_hidden_states, detokenized
 
 
@@ -258,6 +259,7 @@ def extract_representations(
     ignore_embeddings=False,
     decompose_layers=False,
     filter_layers=None,
+    dtype='float32'
 ):
     print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
@@ -273,7 +275,7 @@ def extract_representations(
             return
 
     print("Preparing output file")
-    writer = ActivationsWriter.get_writer(output_file, filetype=output_type, decompose_layers=decompose_layers, filter_layers=filter_layers)
+    writer = ActivationsWriter.get_writer(output_file, filetype=output_type, decompose_layers=decompose_layers, filter_layers=filter_layers, dtype=dtype)
 
     print("Extracting representations from model")
     tokenization_counts = {} # Cache for tokenizer rules
@@ -285,7 +287,8 @@ def extract_representations(
             device=device,
             include_embeddings=(not ignore_embeddings),
             aggregation=aggregation,
-            tokenization_counts=tokenization_counts
+            tokenization_counts=tokenization_counts,
+            dtype=dtype
         )
 
         print("Hidden states: ", hidden_states.shape)
@@ -313,6 +316,12 @@ def main():
         "--aggregation",
         help="first, last or average aggregation for word representation in the case of subword segmentation",
         default="last",
+    )
+    parser.add_argument(
+        "--dtype",
+        choices=["float16", "float32"],
+        default="float32",
+        help="Output dtype of the extracted representations",
     )
     parser.add_argument("--disable_cuda", action="store_true")
     parser.add_argument("--ignore_embeddings", action="store_true")
@@ -348,6 +357,7 @@ def main():
         output_type=args.output_type,
         random_weights=args.random_weights,
         ignore_embeddings=args.ignore_embeddings,
+        dtype=args.dtype
     )
 
 

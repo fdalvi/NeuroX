@@ -67,6 +67,20 @@ class TestTrainProbe(unittest.TestCase):
 
         self.assertEqual(optimizer_step_fn.call_count, 10)
 
+    @patch("torch.optim.Adam.step")
+    def test_train_probe_float16(self, optimizer_step_fn):
+        "Basic probe training test. Same test as before but different data dtype"
+        X = np.random.random((self.num_examples, self.num_features)).astype(np.float16)
+
+        # Ensure y has all three class labels atleast once
+        y = np.concatenate((
+            np.arange(self.num_classes),
+            np.random.randint(0, self.num_classes, size=self.num_examples - self.num_classes),
+        ))
+        linear_probe._train_probe(X, y, "classification")
+
+        self.assertEqual(optimizer_step_fn.call_count, 10)
+
 class TestEvaluateProbe(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -99,6 +113,19 @@ class TestEvaluateProbe(unittest.TestCase):
         scores = linear_probe.evaluate_probe(
                 self.trained_probe,
                 np.random.random((self.num_examples, self.num_features)).astype(np.float32),
+                np.random.randint(0, self.num_classes, size=self.num_examples),
+                idx_to_class = {0: "class0", 1: "class1", 2: "class2"}
+            )
+        self.assertIn("__OVERALL__", scores)
+        self.assertIn("class0", scores)
+        self.assertIn("class1", scores)
+
+    def test_evaluate_probe_with_class_labels_float16(self):
+        "Evaluation with class labels. Same test as before but different data dtype"
+        
+        scores = linear_probe.evaluate_probe(
+                self.trained_probe,
+                np.random.random((self.num_examples, self.num_features)).astype(np.float16),
                 np.random.randint(0, self.num_classes, size=self.num_examples),
                 idx_to_class = {0: "class0", 1: "class1", 2: "class2"}
             )
