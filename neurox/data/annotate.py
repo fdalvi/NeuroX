@@ -5,17 +5,12 @@ that matches the pattern of year.
 The program will extract positive class examples based on the provided filter and will consider rest of the examples as
 negative class examples. The output of the program is a word file, a label file and an activation file.
 
-Author: Hassan Sajjad
-Last Modified: 4 July, 2021
-Last Modified: 21 February, 2022
-Last Modified: 24 February, 2022
 """
-
-import re
 import collections
 import numpy as np
 import argparse
 import sys
+from typing import Pattern
 
 import neurox.data.loader as data_loader
 import neurox.data.utils as data_utils
@@ -23,7 +18,7 @@ import neurox.data.utils as data_utils
 def _create_binary_data(tokens, activations, binary_filter, balance_data=False):
     """
     Given a list of tokens, their activations and a binary_filter, create the binary labeled data. A binary filter can be
-    a set, regex or a function.
+    a set, regex or a function. The regex option expects output of re.compile.
     
     Parameters
     ----------
@@ -49,7 +44,7 @@ def _create_binary_data(tokens, activations, binary_filter, balance_data=False):
     filter_fn = None
     if isinstance(binary_filter, set):
         filter_fn = lambda x: x in binary_filter
-    elif isinstance(binary_filter, re.Pattern):
+    elif isinstance(binary_filter, Pattern):
         filter_fn = lambda x: binary_filter.match(x)
     elif isinstance(binary_filter, collections.Callable):
         filter_fn = binary_filter

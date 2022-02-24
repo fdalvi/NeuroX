@@ -59,7 +59,6 @@ def save_files(words, labels, activations, output_prefix, output_type="hdf5", de
     Save word, label and activation files
     
     """ 
-    print("Preparing output files")
 
     with open(output_prefix+".word", "w") as file:
         print(*words, sep = "\n", file = file)
