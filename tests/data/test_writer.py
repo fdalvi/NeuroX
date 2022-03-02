@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch, ANY
 import h5py
 import torch
 
+from neurox.data import loader
+
 from neurox.data.writer import (
     ActivationsWriter,
     HDF5ActivationsWriter,
@@ -196,3 +198,197 @@ class TestWriterOptions(unittest.TestCase):
         parser_mock.add_argument.assert_any_call(
             "--filter_layers", help=ANY, default=ANY, type=ANY
         )
+
+class TestDecomposition(unittest.TestCase):
+    def setUp(self):
+        self.num_layers = 13
+        self.tmpdir = TemporaryDirectory()
+
+        self.sentences = [
+            "This is a sentence",
+            "This is a another sentence",
+            "This is a sentence",
+            "This is a sentence",
+        ]
+        self.expected_activations = [
+            torch.rand((self.num_layers, len(sentence.split(" ")), 768)) for sentence in self.sentences
+        ]
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_decomposition_hdf5(self):
+        "Test decomposition of all layers into separate files for hdf5"
+        output_file = f"{self.tmpdir.name}/somename.hdf5"
+        actual_output_files = [f"{self.tmpdir.name}/somename-layer{layer_idx}.hdf5" for layer_idx in range(self.num_layers)]
+        writer = ActivationsWriter.get_writer(output_file, decompose_layers=True)
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        for layer_idx, output_file in enumerate(actual_output_files):
+            saved_activations, num_layers = loader.load_activations(output_file)
+            # Decomposed files should only have 1 layer each
+            self.assertEqual(1, num_layers)
+
+            # Check saved activations
+            for sentence_idx, sentence_activations in enumerate(saved_activations):
+                curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx])
+                curr_expected_activations = self.expected_activations[sentence_idx][layer_idx, :, :]
+                self.assertTrue(torch.equal(curr_saved_activations, curr_expected_activations))
+
+    def test_decomposition_json(self):
+        "Test decomposition of all layers into separate files for json"
+        output_file = f"{self.tmpdir.name}/somename.json"
+        actual_output_files = [f"{self.tmpdir.name}/somename-layer{layer_idx}.json" for layer_idx in range(self.num_layers)]
+        writer = ActivationsWriter.get_writer(output_file, decompose_layers=True)
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        for layer_idx, output_file in enumerate(actual_output_files):
+            saved_activations, num_layers = loader.load_activations(output_file)
+            # Decomposed files should only have 1 layer each
+            self.assertEqual(1, num_layers)
+
+            # Check saved activations
+            for sentence_idx, sentence_activations in enumerate(saved_activations):
+                curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx])
+                curr_expected_activations = self.expected_activations[sentence_idx][layer_idx, :, :]
+                self.assertTrue(torch.allclose(curr_saved_activations, curr_expected_activations))
+
+class TestFiltering(unittest.TestCase):
+    def setUp(self):
+        self.num_layers = 13
+        self.tmpdir = TemporaryDirectory()
+
+        self.sentences = [
+            "This is a sentence",
+            "This is a another sentence",
+            "This is a sentence",
+            "This is a sentence",
+        ]
+        self.expected_activations = [
+            torch.rand((self.num_layers, len(sentence.split(" ")), 768)) for sentence in self.sentences
+        ]
+        self.filter_layers = [5, 3, 2]
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_filter_layers_hdf5(self):
+        "Test layer filtering for hdf5"
+        output_file = f"{self.tmpdir.name}/somename.hdf5"
+        writer = ActivationsWriter.get_writer(output_file, filter_layers=",".join(map(str, self.filter_layers)))
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        saved_activations, num_layers = loader.load_activations(output_file)
+        self.assertEqual(len(self.filter_layers), num_layers)
+
+        # Check saved activations
+        for sentence_idx, sentence_activations in enumerate(saved_activations):
+            curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx].reshape((self.expected_activations[sentence_idx].shape[1], len(self.filter_layers), -1)).swapaxes(0, 1))
+            curr_expected_activations = self.expected_activations[sentence_idx][self.filter_layers, :, :]
+            self.assertTrue(torch.equal(curr_saved_activations, curr_expected_activations))
+
+    def test_filter_layers_json(self):
+        "Test layer filtering for json"
+        output_file = f"{self.tmpdir.name}/somename.json"
+        writer = ActivationsWriter.get_writer(output_file, filter_layers=",".join(map(str, self.filter_layers)))
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        saved_activations, num_layers = loader.load_activations(output_file)
+        self.assertEqual(len(self.filter_layers), num_layers)
+
+        # Check saved activations
+        for sentence_idx, sentence_activations in enumerate(saved_activations):
+            curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx].reshape((self.expected_activations[sentence_idx].shape[1], len(self.filter_layers), -1)).swapaxes(0, 1))
+            curr_expected_activations = self.expected_activations[sentence_idx][self.filter_layers, :, :]
+            self.assertTrue(torch.allclose(curr_saved_activations, curr_expected_activations))
+
+class TestDecompositionAndFiltering(unittest.TestCase):
+    def setUp(self):
+        self.num_layers = 13
+        self.tmpdir = TemporaryDirectory()
+
+        self.sentences = [
+            "This is a sentence",
+            "This is a another sentence",
+            "This is a sentence",
+            "This is a sentence",
+        ]
+        self.expected_activations = [
+            torch.rand((self.num_layers, len(sentence.split(" ")), 768)) for sentence in self.sentences
+        ]
+        self.filter_layers = [5, 3, 2]
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_decomposition_and_filter_layers_hdf5(self):
+        "Test decomposition of specific layers into separate files for hdf5"
+        output_file = f"{self.tmpdir.name}/somename.hdf5"
+        actual_output_files = [f"{self.tmpdir.name}/somename-layer{layer_idx}.hdf5" for layer_idx in self.filter_layers]
+        writer = ActivationsWriter.get_writer(output_file, decompose_layers=True, filter_layers=",".join(map(str, self.filter_layers)))
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        for layer_idx, output_file in enumerate(actual_output_files):
+            saved_activations, num_layers = loader.load_activations(output_file)
+            # Decomposed files should only have 1 layer each
+            self.assertEqual(1, num_layers)
+
+            # Check saved activations
+            for sentence_idx, sentence_activations in enumerate(saved_activations):
+                curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx])
+                curr_expected_activations = self.expected_activations[sentence_idx][self.filter_layers[layer_idx], :, :]
+                self.assertTrue(torch.equal(curr_saved_activations, curr_expected_activations))
+
+    def test_decomposition_and_filter_layers_json(self):
+        "Test decomposition of specific layers into separate files for json"
+        output_file = f"{self.tmpdir.name}/somename.json"
+        actual_output_files = [f"{self.tmpdir.name}/somename-layer{layer_idx}.json" for layer_idx in self.filter_layers]
+        writer = ActivationsWriter.get_writer(output_file, decompose_layers=True, filter_layers=",".join(map(str, self.filter_layers)))
+
+        for s_idx in range(len(self.sentences)):
+            writer.write_activations(
+                s_idx, self.sentences[s_idx].split(" "), self.expected_activations[s_idx]
+            )
+
+        writer.close()
+
+        for layer_idx, output_file in enumerate(actual_output_files):
+            saved_activations, num_layers = loader.load_activations(output_file)
+            # Decomposed files should only have 1 layer each
+            self.assertEqual(1, num_layers)
+
+            # Check saved activations
+            for sentence_idx, sentence_activations in enumerate(saved_activations):
+                curr_saved_activations = torch.FloatTensor(saved_activations[sentence_idx])
+                curr_expected_activations = self.expected_activations[sentence_idx][self.filter_layers[layer_idx], :, :]
+                self.assertTrue(torch.allclose(curr_saved_activations, curr_expected_activations))
