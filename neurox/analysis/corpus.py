@@ -9,7 +9,7 @@ from collections import defaultdict
 import numpy as np
 
 
-def get_top_words(tokens, activations, neuron, num_tokens=0):
+def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=0.1):
     """
     Get top activating words for any given neuron.
 
@@ -33,6 +33,10 @@ def get_top_words(tokens, activations, neuron, num_tokens=0):
     num_tokens: int, optional
         Number of top tokens to return. Defaults to 0, which returns all tokens
         with a non-neglible contribution to the variance
+    min_threshold: float, optional
+        Return top tokens that have a normalized score above the threshold. Ranges
+        from 0 to 1. Defaults to 0.1 which returns all tokens that have a score of
+        above 0.1
 
     Returns
     -------
@@ -40,8 +44,12 @@ def get_top_words(tokens, activations, neuron, num_tokens=0):
         List of tuples, where each tuple is a (token, score) element
 
     """
-    MIN_THRESHOLD = 0.1  # threshold for "negligible activation score"
 
+    if num_tokens > 0 and min_threshold > 0.1:
+        raise ValueError(
+            "Cannot specify both num_tokens and min_threshold at the same time!"
+        )
+        
     activation_values = [
         sentence_activations[:, neuron] for sentence_activations in activations
     ]
@@ -72,10 +80,10 @@ def get_top_words(tokens, activations, neuron, num_tokens=0):
     # Sort and filter scores
     sorted_types_scores = sorted(type_wise_scores, key=lambda x: -x[1])
     sorted_types_scores = [
-        (k, v) for (k, v) in sorted_types_scores if v > MIN_THRESHOLD
+        (k, v) for (k, v) in sorted_types_scores if v > min_threshold
     ]
 
     if num_tokens > 0:
-        sorted_types_scores = sorted_types_scores[:num_tokens]
+        sorted_types_scores = sorted_types_scores[:num_tokens] 
 
     return sorted_types_scores
