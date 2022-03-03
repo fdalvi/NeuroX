@@ -9,7 +9,7 @@ from collections import defaultdict
 import numpy as np
 
 
-def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=0.1):
+def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=None):
     """
     Get top activating words for any given neuron.
 
@@ -32,11 +32,12 @@ def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=0.1):
         Index of the neuron relative to ``X``
     num_tokens: int, optional
         Number of top tokens to return. Defaults to 0, which returns all tokens
-        with a non-neglible contribution to the variance
+        with a non-neglible contribution to the variance. Cannot be specified with
+        min_threshold
     min_threshold: float, optional
         Return top tokens that have a normalized score above the threshold. Ranges
         from 0 to 1. Defaults to 0.1 which returns all tokens that have a score of
-        above 0.1
+        above 0.1. Cannot be specified with num_tokens
 
     Returns
     -------
@@ -45,11 +46,13 @@ def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=0.1):
 
     """
 
-    if num_tokens > 0 and min_threshold > 0.1:
+    if num_tokens != 0 and min_threshold is not None:
         raise ValueError(
-            "Cannot specify both num_tokens and min_threshold at the same time!"
+            "Cannot specify both num_tokens and min_threshold at the same time"
         )
-        
+    elif min_threshold is None:
+        min_threshold = 0.1
+
     activation_values = [
         sentence_activations[:, neuron] for sentence_activations in activations
     ]
