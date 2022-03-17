@@ -4,6 +4,7 @@
 ### New Features
 - _Probeless_ method implementation has been added in the `interpretation` module
 - Data balancing and binary annotation methods are now part of the `data` module
+- New options for transformers extraction: Decompose layer activations in separate files, Save activations only for certain layers
 - Dedicated Activations Writer class that abstracts away representation saving from representation extraction
 
 ### Bug fixes
