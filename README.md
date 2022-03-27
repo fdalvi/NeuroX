@@ -35,22 +35,18 @@ If you wish to install this package manually (e.g. to modify or contribute to th
 git clone https://github.com/fdalvi/NeuroX.git
 ```
 
-Add the directory to your python path. This can be done dynamically at runtime using the `sys.path` list:
-
-```python
-import sys
-sys.path.append("path/to/cloned/NeuroX/")
-
-```
-
-A [Conda](https://anaconda.org) environment is provided with all the necessary dependencies for the toolkit. The toolkit primarily relies on PyTorch and NumPy for most of its operations. To create a new environment with all the dependencies, run:
+Create and activate a new virtual environment for the toolkit (This step can be skipped if you manage your environment in other ways like Conda or System-level installations):
 
 ```bash
-conda env create -f conda-environment.yml -n neurox-toolkit
-conda activate neurox-toolkit
+python -m venv .neurox-env
+source .neurox-env/bin/activate
 ```
 
-If you wish to manage your enviroment in other ways, a standard `requirements.txt` is also provided for use by `pip` directly.
+Install the dependencies required to run the toolkit:
+
+```bash
+pip install -e .
+```
 
 ## Sample Code
 A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in the [examples](examples/End%20to%20End%20Example.ipynb) directory for a quick introduction to the main functionality provided by this toolkit.

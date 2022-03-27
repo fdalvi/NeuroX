@@ -2,8 +2,9 @@
 *__pycache__
 *.ipynb_checkpoints
 *.vscode
-.coverage
+.coverage*
 *egg-info
+.pytest_cache
 
 # Temp files
 tmp
@@ -15,3 +16,6 @@ tmp
 docs-generator
 build
 dist
+
+# Python envs
+.envs
