@@ -17,22 +17,26 @@ There may be other types of contributions that we may have missed, so feel free 
 
 ### Code Style
 
-NeuroX aims to keep a consistent style, and is enforcing `black` for all future contributions.
+NeuroX aims to keep a consistent style, and is enforcing `ufmt` for all code in the repository.
 
 
 ### Unit Tests
 
-To run the unit tests, you can use python's `unittest` module:
+The tests are run using `pytest` (with coverage support):
+```bash
+./scripts/run_tests.sh
+```
+
+You can also use python's built-in `unittest` module:
 
 ```bash
 python -m unittest
 ```
 
-
 ### Documentation
 The following command will build the documentation locally and launch the page in your browser:
 ```bash
-./generate_docs.sh
+./scripts/generate_docs.sh
 ```
 
 ## Pull Requests
