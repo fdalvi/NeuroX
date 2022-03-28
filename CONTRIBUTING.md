@@ -15,10 +15,26 @@ There may be other types of contributions that we may have missed, so feel free 
 
 ## Development Process
 
+### Setting up the repository and dependencies
+
+Clone the repository, create a virtual enviroment and install all the development dependencies using the following commands:
+
+```bash
+git clone https://github.com/fdalvi/NeuroX.git
+python -m venv .neurox-dev
+source .neurox-dev/bin/activate
+pip install -e '.[dev]'
+```
+
 ### Code Style
 
-NeuroX aims to keep a consistent style, and is enforcing `ufmt` for all code in the repository.
+NeuroX aims to keep a consistent style, and is enforcing `ufmt` for all code in the repository. Run
 
+```bash
+./scripts/format_code.sh
+```
+
+to format all package and test code automatically.
 
 ### Unit Tests
 
