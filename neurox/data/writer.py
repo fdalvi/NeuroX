@@ -62,11 +62,12 @@ class ActivationsWriter:
     """
 
     def __init__(
-        self, filename, filetype=None, decompose_layers=False, filter_layers=None
+        self, filename, filetype=None, decompose_layers=False, filter_layers=None, dtype='float32'
     ):
         self.filename = filename
         self.decompose_layers = decompose_layers
         self.filter_layers = filter_layers
+        self.dtype = dtype
 
     def open(self):
         """
@@ -130,6 +131,7 @@ class ActivationsWriterManager(ActivationsWriter):
             filetype=filetype,
             decompose_layers=decompose_layers,
             filter_layers=filter_layers,
+            dtype=dtype
         )
 
         if filename.endswith(".hdf5") or filetype == "hdf5":
@@ -142,7 +144,6 @@ class ActivationsWriterManager(ActivationsWriter):
         self.filename = filename
         self.layers = None
         self.writers = None
-        self.dtype = dtype
 
     def open(self, num_layers):
         self.layers = list(range(num_layers))
@@ -152,11 +153,17 @@ class ActivationsWriterManager(ActivationsWriter):
         if self.decompose_layers:
             for layer_idx in self.layers:
                 local_filename = f"{self.filename[:-5]}-layer{layer_idx}.{self.filename[-4:]}"
-                _writer = self.base_writer(local_filename)
+                if self.base_writer == HDF5ActivationsWriter:
+                    _writer = self.base_writer(local_filename, dtype=self.dtype)
+                else:
+                    _writer = self.base_writer(local_filename)
                 _writer.open()
                 self.writers.append(_writer)
         else:
-            _writer = self.base_writer(self.filename)
+            if self.base_writer == HDF5ActivationsWriter:
+                _writer = self.base_writer(self.filename, dtype=self.dtype)
+            else:
+                _writer = self.base_writer(self.filename)
             _writer.open()
             self.writers.append(_writer)
 
@@ -167,11 +174,11 @@ class ActivationsWriterManager(ActivationsWriter):
         if self.decompose_layers:
             for writer_idx, layer_idx in enumerate(self.layers):
                 self.writers[writer_idx].write_activations(
-                    sentence_idx, extracted_words, activations[[layer_idx], :, :], dtype=self.dtype
+                    sentence_idx, extracted_words, activations[[layer_idx], :, :]
                 )
         else:
             self.writers[0].write_activations(
-                sentence_idx, extracted_words, activations[self.layers, :, :], dtype=self.dtype
+                sentence_idx, extracted_words, activations[self.layers, :, :]
             )
 
     def close(self):
@@ -180,8 +187,8 @@ class ActivationsWriterManager(ActivationsWriter):
 
 
 class HDF5ActivationsWriter(ActivationsWriter):
-    def __init__(self, filename):
-        super().__init__(filename, filetype="hdf5")
+    def __init__(self, filename, dtype='float32'):
+        super().__init__(filename, filetype="hdf5", dtype=dtype)
         if not self.filename.endswith(".hdf5"):
             raise ValueError(
                 f"Output filename ({self.filename}) does not end with .hdf5, but output file type is hdf5."
@@ -192,12 +199,11 @@ class HDF5ActivationsWriter(ActivationsWriter):
         self.activations_file = h5py.File(self.filename, "w")
         self.sentence_to_index = {}
 
-    def write_activations(self, sentence_idx, extracted_words, activations, dtype='float32'):
+    def write_activations(self, sentence_idx, extracted_words, activations):
         if self.activations_file is None:
             self.open()
-
         self.activations_file.create_dataset(
-            str(sentence_idx), activations.shape, dtype=dtype, data=activations
+            str(sentence_idx), activations.shape, dtype=self.dtype, data=activations
         )
 
         # TODO: Replace with better implementation with list of indices
@@ -231,7 +237,7 @@ class JSONActivationsWriter(ActivationsWriter):
     def open(self):
         self.activations_file = open(self.filename, "w", encoding="utf-8")
 
-    def write_activations(self, sentence_idx, extracted_words, activations, dtype='float32'):
+    def write_activations(self, sentence_idx, extracted_words, activations):
         if self.activations_file is None:
             self.open()
 
