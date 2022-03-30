@@ -236,6 +236,8 @@ def create_tensors(
     if task_type == "classification":
         print("length of target dictionary: ", len(label2idx))
 
+    if x_dtype==None:
+        x_dtype=activations[0].dtype
     X = np.zeros((num_tokens, num_neurons), dtype=x_dtype)
     if task_type=="classification":
         y = np.zeros((num_tokens,), dtype=np.int)
