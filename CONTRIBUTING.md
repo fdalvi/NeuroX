@@ -15,24 +15,44 @@ There may be other types of contributions that we may have missed, so feel free 
 
 ## Development Process
 
+### Setting up the repository and dependencies
+
+Clone the repository, create a virtual enviroment and install all the development dependencies using the following commands:
+
+```bash
+git clone https://github.com/fdalvi/NeuroX.git
+python -m venv .neurox-dev
+source .neurox-dev/bin/activate
+pip install -e '.[dev]'
+```
+
 ### Code Style
 
-NeuroX aims to keep a consistent style, and is enforcing `black` for all future contributions.
+NeuroX aims to keep a consistent style, and is enforcing `ufmt` for all code in the repository. Run
 
+```bash
+./scripts/format_code.sh
+```
+
+to format all package and test code automatically.
 
 ### Unit Tests
 
-To run the unit tests, you can use python's `unittest` module:
+The tests are run using `pytest` (with coverage support):
+```bash
+./scripts/run_tests.sh
+```
+
+You can also use python's built-in `unittest` module:
 
 ```bash
 python -m unittest
 ```
 
-
 ### Documentation
 The following command will build the documentation locally and launch the page in your browser:
 ```bash
-./generate_docs.sh
+./scripts/generate_docs.sh
 ```
 
 ## Pull Requests

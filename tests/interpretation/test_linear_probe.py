@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
 import numpy as np
 import torch
@@ -53,19 +53,49 @@ class TestTrainProbe(unittest.TestCase):
         cls.num_features = 100
         cls.num_classes = 3
 
-    @patch("torch.optim.Adam.step")
-    def test_train_probe(self, optimizer_step_fn):
-        "Basic probe training test"
-        X = np.random.random((self.num_examples, self.num_features)).astype(np.float32)
+        cls.X = np.random.random((cls.num_examples, cls.num_features)).astype(np.float32)
 
-        # Ensure y has all three class labels atleast once
-        y = np.concatenate((
-            np.arange(self.num_classes),
-            np.random.randint(0, self.num_classes, size=self.num_examples - self.num_classes),
+        # Ensure y has all class labels atleast once for classification
+        cls.y_classification = np.concatenate((
+            np.arange(cls.num_classes),
+            np.random.randint(0, cls.num_classes, size=cls.num_examples - cls.num_classes),
         ))
-        linear_probe._train_probe(X, y, "classification")
+        cls.y_regression = np.random.random((cls.num_examples)).astype(np.float32)
 
-        self.assertEqual(optimizer_step_fn.call_count, 10)
+    @patch("torch.optim.Adam.step")
+    def test_train_classification_probe(self, optimizer_step_fn):
+        "Basic classification probe training test"
+        num_epochs = 5
+
+        linear_probe._train_probe(self.X, self.y_classification, "classification", num_epochs=num_epochs)
+
+        self.assertEqual(optimizer_step_fn.call_count, num_epochs)
+
+    def test_train_classification_probe_one_class(self):
+        "Classification probe with one class test"
+
+        y = np.zeros((self.num_examples,))
+        self.assertRaises(ValueError, linear_probe._train_probe, self.X, y, "classification")
+
+    def test_train_probe_invalid_type(self):
+        "Train probe of invalid type"
+        self.assertRaises(ValueError, linear_probe._train_probe, self.X, self.y_classification, "invalid-type")
+
+    @patch("torch.optim.Adam.step")
+    def test_train_regression_probe(self, optimizer_step_fn):
+        "Basic regression probe training test"
+        num_epochs = 12
+
+        linear_probe._train_probe(self.X, self.y_regression, "regression", num_epochs=num_epochs)
+
+        self.assertEqual(optimizer_step_fn.call_count, num_epochs)
+
+    def test_train_probe_no_regularization(self):
+        "Probe training with wrong regularization test"
+
+        self.assertRaises(
+            ValueError, linear_probe._train_probe, self.X, self.y_classification, "classification", lambda_l1=None
+        )
 
     @patch("torch.optim.Adam.step")
     def test_train_probe_float16(self, optimizer_step_fn):
@@ -90,16 +120,19 @@ class TestEvaluateProbe(unittest.TestCase):
 
         X = np.random.random((cls.num_examples, cls.num_features)).astype(np.float32)
         # Ensure y has all three class labels atleast once
-        y = np.concatenate((
+        y_classification = np.concatenate((
             np.arange(cls.num_classes),
             np.random.randint(0, cls.num_classes, size=cls.num_examples - cls.num_classes),
         ))
 
-        cls.trained_probe = linear_probe._train_probe(X, y, "classification")
+        y_regression = np.random.random((cls.num_examples,)).astype(np.float32)
 
-    def test_evaluate_probe(self):
-        "Basic probe evaluation"
-        
+        cls.trained_probe = linear_probe._train_probe(X, y_classification, "classification")
+        cls.trained_regression_probe = linear_probe._train_probe(X, y_regression, "regression")
+
+    def test_evaluate_classification_probe(self):
+        "Basic classification probe evaluation"
+
         scores = linear_probe.evaluate_probe(
                 self.trained_probe,
                 np.random.random((self.num_examples, self.num_features)).astype(np.float32),
@@ -107,9 +140,19 @@ class TestEvaluateProbe(unittest.TestCase):
             )
         self.assertIn("__OVERALL__", scores)
 
+    def test_evaluate_regression_probe(self):
+        "Basic regresson probe evaluation"
+
+        scores = linear_probe.evaluate_probe(
+                self.trained_regression_probe,
+                np.random.random((self.num_examples, self.num_features)).astype(np.float32),
+                np.random.random((self.num_examples,)),
+            )
+        self.assertIn("__OVERALL__", scores)
+
     def test_evaluate_probe_with_class_labels(self):
         "Evaluation with class labels"
-        
+
         scores = linear_probe.evaluate_probe(
                 self.trained_probe,
                 np.random.random((self.num_examples, self.num_features)).astype(np.float32),
@@ -135,7 +178,7 @@ class TestEvaluateProbe(unittest.TestCase):
 
     def test_evaluate_probe_with_return_predictions(self):
         "Probe evaluation with returned predictions"
-        
+
         y_true = np.random.randint(0, self.num_classes, size=self.num_examples)
         scores, predictions = linear_probe.evaluate_probe(
                 self.trained_probe,
@@ -165,7 +208,7 @@ class TestGetTopNeurons(unittest.TestCase):
         # the second neuron
         mock_weight_matrix = [[5,1,1], [1,10,1]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         top_neurons, classwise_top_neurons = linear_probe.get_top_neurons(
                 probe_mock,
                 0.5,
@@ -182,7 +225,7 @@ class TestGetTopNeurons(unittest.TestCase):
         # Create a weight matrix with 2 samples and 3 neurons
         mock_weight_matrix = [[10, 9, 8], [10, 2, 1]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         top_neurons, classwise_top_neurons = linear_probe.get_top_neurons(
                 probe_mock,
                 1.1, # Percentage is higher than total mass, all neurons will be top neurons
@@ -199,13 +242,13 @@ class TestGetTopNeuronsHardThreshold(unittest.TestCase):
         "Basic get top neurons with hard threshold test"
 
         # Create a weight matrix with 2 samples and 4 neurons
-        # In the first sample, only the first neuron is higher than 
+        # In the first sample, only the first neuron is higher than
         # max_weight (5) / threshold (2) = 2.5
         # In the second sample, the second and fourth neuron are higher than
         # max_weight(10) / threshold (2) = 5
         mock_weight_matrix = [[5,1,2,1], [1,10,1,6]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         top_neurons, classwise_top_neurons = linear_probe.get_top_neurons_hard_threshold(
                 probe_mock,
                 2,
@@ -227,7 +270,7 @@ class TestGetBottomNeurons(unittest.TestCase):
         # of the total weight mass (10+1+1=12)
         mock_weight_matrix = [[5,4,1], [10,1,1]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         bottom_neurons, classwise_bottom_neurons = linear_probe.get_bottom_neurons(
                 probe_mock,
                 0.1,
@@ -245,7 +288,7 @@ class TestGetBottomNeurons(unittest.TestCase):
         # Create a weight matrix with 2 samples and 3 neurons
         mock_weight_matrix = [[8, 9, 10], [1,2,10]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         bottom_neurons, classwise_bottom_neurons = linear_probe.get_bottom_neurons(
                 probe_mock,
                 1.1, # Percentage is higher than total mass, all neurons will be bottom neurons
@@ -267,13 +310,13 @@ class TestGetRandomNeurons(unittest.TestCase):
         # Exactly expected_random_neurons will have random values below 0.35 and
         # the rest will have a higher random values
         expected_random_neurons = 3413
-        probe_mock.parameters.return_value = [torch.rand((2, 10000))]        
+        probe_mock.parameters.return_value = [torch.rand((2, 10000))]
         mock_weights = np.array(
             [random.random()/3 for _ in range(expected_random_neurons)] +
             [0.4 + random.random()/6 for _ in range(10000-expected_random_neurons)]
         )
         numpy_random.return_value = mock_weights
-        
+
         random_neurons = linear_probe.get_random_neurons(
             probe_mock,
             0.35
@@ -286,7 +329,7 @@ class TestGetNeuronOrdering(unittest.TestCase):
     @patch("neurox.interpretation.linear_probe.LinearProbe")
     def test_get_neuron_ordering(self, probe_mock):
         "Basic get neuron ordering test"
-        
+
         # Create a weight matrix with 2 samples and 3 neurons
         # Neuron 3 is the most important neuron as it has the highest weight in
         # both samples, followed by Neuron 1 which has equal weight in sample 2
@@ -294,7 +337,7 @@ class TestGetNeuronOrdering(unittest.TestCase):
         mock_weight_matrix = [[4,1,5], [1,1,10]]
         expected_neuron_order = [2, 0, 1]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         ordering, cutoffs = linear_probe.get_neuron_ordering(
             probe_mock,
             {'class0':  0, 'class1': 1}
@@ -306,7 +349,7 @@ class TestGetNeuronOrderingGranular(unittest.TestCase):
     @patch("neurox.interpretation.linear_probe.LinearProbe")
     def test_get_neuron_ordering_granular(self, probe_mock):
         "Basic get neuron ordering (granular) test"
-        
+
         # Create a weight matrix with 2 samples and 3 neurons
         # Neuron 3 is the most important neuron as it has the highest weight in
         # both samples, followed by Neuron 1 which has equal weight in sample 2
@@ -314,12 +357,12 @@ class TestGetNeuronOrderingGranular(unittest.TestCase):
         mock_weight_matrix = [[4,1,5], [1,1,10]]
         expected_neuron_order = [2, 0, 1]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         ordering, cutoffs = linear_probe.get_neuron_ordering_granular(
             probe_mock,
             {'class0':  0, 'class1': 1},
             granularity=1, # Basic test looks at 1 neuron in every chunk
-        ) 
+        )
 
         self.assertListEqual(ordering, expected_neuron_order)
 
@@ -328,17 +371,47 @@ class TestGetFixedBottomNeurons(unittest.TestCase):
     @patch("neurox.interpretation.linear_probe.LinearProbe")
     def test_get_fixed_number_of_bottom_neurons(self, probe_mock):
         "Basic get fixed global bottom neurons test"
-        
+
         # Create a weight matrix with 2 samples and 3 neurons
         # Neuron 2 is the least important globally as it has the smallest weight
         # in both samples
         mock_weight_matrix = [[4,1,5], [1,1,10]]
         probe_mock.parameters.return_value = [torch.Tensor(mock_weight_matrix)]
-        
+
         bottom_neurons = linear_probe.get_fixed_number_of_bottom_neurons(
-            probe_mock, 
+            probe_mock,
             1,
             {'class0':  0, 'class1': 1}
         )
 
         self.assertListEqual(bottom_neurons, [1])
+
+class TestTrainClassificationProbe(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.num_examples = 10
+        cls.num_features = 100
+        cls.num_classes = 3
+
+    @patch("neurox.interpretation.linear_probe._train_probe")
+    def test_train_logistic_regression_probe(self, train_probe_mock):
+        "Logistic Regression probe test"
+
+        linear_probe.train_logistic_regression_probe("X_data", "y_data")
+
+        train_probe_mock.assert_called_with(ANY, ANY, task_type="classification", batch_size=ANY, lambda_l1=ANY, lambda_l2=ANY, learning_rate=ANY, num_epochs=ANY)
+
+class TestTrainRegressionProbe(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.num_examples = 10
+        cls.num_features = 100
+        cls.num_classes = 3
+
+    @patch("neurox.interpretation.linear_probe._train_probe")
+    def test_train_linear_regression_probe(self, train_probe_mock):
+        "Linear Regression probe test"
+
+        linear_probe.train_linear_regression_probe("X_data", "y_data")
+
+        train_probe_mock.assert_called_with(ANY, ANY, task_type="regression", batch_size=ANY, lambda_l1=ANY, lambda_l2=ANY, learning_rate=ANY, num_epochs=ANY)

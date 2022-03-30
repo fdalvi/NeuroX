@@ -151,7 +151,7 @@ class ActivationsWriterManager(ActivationsWriter):
             self.layers = [int(l) for l in self.filter_layers.split(",")]
         if self.decompose_layers:
             for layer_idx in self.layers:
-                local_filename = f"{self.filename[:-5]}-layer{layer_idx}.hdf5"
+                local_filename = f"{self.filename[:-5]}-layer{layer_idx}.{self.filename[-4:]}"
                 _writer = self.base_writer(local_filename)
                 _writer.open()
                 self.writers.append(_writer)
@@ -167,7 +167,7 @@ class ActivationsWriterManager(ActivationsWriter):
         if self.decompose_layers:
             for writer_idx, layer_idx in enumerate(self.layers):
                 self.writers[writer_idx].write_activations(
-                    sentence_idx, extracted_words, activations[layer_idx, :, :], dtype=self.dtype
+                    sentence_idx, extracted_words, activations[[layer_idx], :, :], dtype=self.dtype
                 )
         else:
             self.writers[0].write_activations(
