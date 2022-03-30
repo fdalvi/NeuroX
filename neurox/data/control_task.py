@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 
 
-def create_seq_labeling_control_task_datasets(
+def create_sequence_labeling_dataset(
     train_tokens,
     sample_from="same",
     dev_source=None,
