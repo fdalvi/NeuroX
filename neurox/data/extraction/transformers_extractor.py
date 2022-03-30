@@ -174,7 +174,7 @@ def extract_sentence_representations(
                 hidden_states[0].cpu().numpy()
                 for hidden_states in all_hidden_states[1:]
             ]
-        all_hidden_states = np.array(all_hidden_states).astype(dtype)
+        all_hidden_states = np.array(all_hidden_states, dtype=dtype)
 
     print('Sentence         : "%s"' % (sentence))
     print("Original    (%03d): %s" % (len(original_tokens), original_tokens))
