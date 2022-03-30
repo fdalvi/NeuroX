@@ -139,7 +139,7 @@ def count_target_words(tokens):
 
 
 def create_tensors(
-    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balance_data = False, x_dtype=None
+    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balance_data = False, dtype=None
 ):
     """
     Method to pre-process loaded datasets into tensors that can be used to train
@@ -179,7 +179,7 @@ def create_tensors(
         Whether the incoming data should be balanced. Data is balanced using 
         utils.balance_binary_class_data for binary data and utils.balance_multi_class_data
         for multi-class data using undersampling. Defaults to False.
-    x_dtype : str, optional
+    dtype : str, optional
         None if the dtype of the activation tensor should be the same dtype as in the activations input
         e.g. 'float16' or 'float32' to enforce half-precision or full-precision floats
 
@@ -236,9 +236,9 @@ def create_tensors(
     if task_type == "classification":
         print("length of target dictionary: ", len(label2idx))
 
-    if x_dtype==None:
-        x_dtype=activations[0].dtype
-    X = np.zeros((num_tokens, num_neurons), dtype=x_dtype)
+    if dtype==None:
+        dtype=activations[0].dtype
+    X = np.zeros((num_tokens, num_neurons), dtype=dtype)
     if task_type=="classification":
         y = np.zeros((num_tokens,), dtype=np.int)
     else:

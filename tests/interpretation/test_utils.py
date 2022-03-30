@@ -206,7 +206,7 @@ class TestCreateTensors(unittest.TestCase):
             np.random.random((len(self.tokens["source"][1]), self.num_neurons)).astype('float32'),
         ]
 
-        X, y, mapping = utils.create_tensors(self.tokens, activations, "class2", x_dtype='float16')
+        X, y, mapping = utils.create_tensors(self.tokens, activations, "class2", dtype='float16')
 
         global_token_count = 0
         for activation in activations:
