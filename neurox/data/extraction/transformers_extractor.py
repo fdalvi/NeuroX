@@ -348,6 +348,8 @@ def main():
         output_type=args.output_type,
         random_weights=args.random_weights,
         ignore_embeddings=args.ignore_embeddings,
+        decompose_layers=args.decompose_layers,
+        filter_layers=args.filter_layers,
     )
 
 

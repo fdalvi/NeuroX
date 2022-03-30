@@ -114,7 +114,7 @@ def _train_probe(
     batch_size : int, optional
         Batch size for the input to the linear model. Defaults to 32
     learning_rate : float, optional
-        Learning rate for optimizing the linear model. 
+        Learning rate for optimizing the linear model.
 
     Returns
     -------
@@ -128,15 +128,13 @@ def _train_probe(
     use_gpu = torch.cuda.is_available()
 
     if lambda_l1 is None or lambda_l2 is None:
-        print("Please provide regularizer weights")
-        return
+        raise ValueError("Regularization weights cannot be None")
 
     print("Creating model...")
     if task_type == "classification":
         num_classes = len(set(y_train))
-        assert (
-            num_classes > 1
-        ), "Classification problem must have more than one target class"
+        if num_classes <= 1:
+            raise ValueError("Classification problem must have more than one target class")
     else:
         num_classes = 1
     print("Number of training instances:", X_train.shape[0])
@@ -152,9 +150,7 @@ def _train_probe(
     elif task_type == "regression":
         criterion = nn.MSELoss()
     else:
-        assert (
-            task_type == "classification" or task_type == "regression"
-        ), "Invalid task type"
+        raise ValueError("Invalid `task_type`")
 
     optimizer = torch.optim.Adam(probe.parameters(), lr=learning_rate)
 
@@ -240,7 +236,7 @@ def train_logistic_regression_probe(
     batch_size : int, optional
         Batch size for the input to the linear model. Defaults to 32
     learning_rate : float, optional
-        Learning rate for optimizing the linear model. 
+        Learning rate for optimizing the linear model.
 
     Returns
     -------
@@ -263,8 +259,8 @@ def train_logistic_regression_probe(
 def train_linear_regression_probe(
     X_train,
     y_train,
-    lambda_l1=None,
-    lambda_l2=None,
+    lambda_l1=0,
+    lambda_l2=0,
     num_epochs=10,
     batch_size=32,
     learning_rate=0.001,
@@ -299,7 +295,7 @@ def train_linear_regression_probe(
     batch_size : int, optional
         Batch size for the input to the linear model. Defaults to 32
     learning_rate : float, optional
-        Learning rate for optimizing the linear model. 
+        Learning rate for optimizing the linear model.
 
     Returns
     -------
@@ -310,7 +306,7 @@ def train_linear_regression_probe(
     return _train_probe(
         X_train,
         y_train,
-        model_type="regression",
+        task_type="regression",
         lambda_l1=lambda_l1,
         lambda_l2=lambda_l2,
         num_epochs=num_epochs,
@@ -374,7 +370,7 @@ def evaluate_probe(
         class and their associated scores are also part of the dictionary.
     predictions : list of 3-tuples, optional
         If ``return_predictions`` is set to True, this list will contain a
-        3-tuple for every input sample, representing 
+        3-tuple for every input sample, representing
         ``(source_token, predicted_class, was_predicted_correctly)``
 
     """
@@ -536,7 +532,7 @@ def get_top_neurons_hard_threshold(probe, fraction, class_to_idx):
 
     This method returns the set of all top neurons based on the given threshold.
     All neurons that have a weight above ``threshold * max_weight`` are
-    considered as top neurons. It also returns top neurons per class. 
+    considered as top neurons. It also returns top neurons per class.
 
     .. note::
         Absolute weight values are used for selection, instead of raw signed
@@ -679,9 +675,9 @@ def get_neuron_ordering(probe, class_to_idx, search_stride=100):
     percentages of the weight mass and then accumulated in-order. See given
     reference for a complete description of the selection algorithm.
 
-    For example, if the neuron list at 1% weight mass is [#2, #52, #134], and 
+    For example, if the neuron list at 1% weight mass is [#2, #52, #134], and
     at 2% weight mass is [#2, #4, #52, #123, #130, #134, #567], the returned
-    ordering will be [#2, #52, #134, #4, #123, #130, #567]. 
+    ordering will be [#2, #52, #134, #4, #123, #130, #567].
     Within each percentage, the ordering of neurons is arbitrary. In this case,
     the importance of #2, #52 and #134 is not necessarily in that order.
     The cutoffs between each percentage selection are also returned. Increasing
