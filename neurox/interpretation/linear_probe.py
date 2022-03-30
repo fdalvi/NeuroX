@@ -160,7 +160,6 @@ def _train_probe(
     X_tensor = torch.from_numpy(X_train)
     y_tensor = torch.from_numpy(y_train)
 
-    scaler = torch.cuda.amp.GradScaler() # Mixed precision
     for epoch in range(num_epochs):
         num_tokens = 0
         avg_loss = 0
@@ -190,9 +189,8 @@ def _train_probe(
                     + lambda_l1 * l1_penalty(weights)
                     + lambda_l2 * l2_penalty(weights)
                 )
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            loss.backward()
+            optimizer.step()
 
             avg_loss += loss.item()
 
@@ -339,12 +337,10 @@ def evaluate_probe(
     This method evaluates a trained probe on the given data, and supports
     several standard metrics.
 
-    Precision with which the probe is evaluated may depend on the dtype of the 
+    Precision with which the probe is evaluated depends on the dtype of the 
     input X, and on whether GPU is available.
-    If GPU is used and X is in float16, evaluation is run in half precision.
-    If GPU is used and X is in float32, evaluation is run in full precision.
-    If no GPU is used, X is converted from float16 to float32, if necessary 
-    (half precision is not available for CPU).
+    If no GPU is used, X and the probe are converted from float16 to float32, if necessary.
+    Otherwise, dtype of X and the probe are left unchanged. 
 
     Parameters
     ----------
@@ -414,6 +410,8 @@ def evaluate_probe(
         src_word = -1
 
     convert_to_full_precision = not(use_gpu) and X.dtype=='float16'
+    if convert_to_full_precision:
+        probe = probe.float()
     for inputs, labels in progressbar(
         utils.batch_generator(
             torch.from_numpy(X), torch.from_numpy(y), batch_size=batch_size
