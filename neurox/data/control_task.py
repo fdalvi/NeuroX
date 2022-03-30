@@ -5,10 +5,10 @@ import numpy as np
 
 def create_sequence_labeling_dataset(
     train_tokens,
-    sample_from="same",
     dev_source=None,
     test_source=None,
-    case_sensitive=True,
+    case_sensitive=True,    
+    sample_from="same"
 ):
     """
     Method that prepares labels for a control task, as defined in §2.1 of `Hewitt and Liang (2019) <https://aclanthology.org/D19-1275.pdf>`
@@ -24,17 +24,17 @@ def create_sequence_labeling_dataset(
         List containing the ``source`` tokens from the development set, as produced by ``dev_tokens['source']``
     test_source : list, optional
         List containing the ``source`` tokens from the test set, as produced by ``test_tokens['source']``
+    case_sensitive: bool, optional
+        defaults to True. Sets whether the token comparison (for assigning the control task labels) is case-sensitive
+        or case-insensitive.
     sample_from : str, optional
         defaults to 'same'. The distribution from which control task labels are sampled.
         'same': Labels are sampled from the same distribution as the main task labels.
         'uniform': Labels are sampled from a uniform distribution.
-    case_sensitive: bool, optional
-        defaults to True. Sets whether the token comparison (for assigning the control task labels) is case-sensitive
-        or case-insensitive.
 
     Returns
     -------
-    ct_tokens : list
+    control_task_tokens : list
         A list with either one, two or three elements - depending on whether
         control task labels for only the train, or also dev and test set should be created.
         Each element of the list is a dictionary containing two lists, ``source`` and ``target``.
