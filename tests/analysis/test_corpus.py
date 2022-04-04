@@ -75,3 +75,9 @@ class TestGetTopWords(unittest.TestCase):
             self.tokens, self.activations, 0, num_tokens=10
         )
         self.assertEqual(len(top_words), 10)
+
+    def test_min_words_and_min_threshold_exception(self):
+        "Throw exception if both num_tokens and min_threshold is set"
+
+        self.assertRaises(ValueError, corpus.get_top_words, self.tokens, self.activations, 1, num_tokens=10 , min_threshold=0.5)
+        
