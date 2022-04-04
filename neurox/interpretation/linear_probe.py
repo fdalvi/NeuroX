@@ -336,7 +336,8 @@ def evaluate_probe(
 
     Precision with which the probe is evaluated depends on the dtype of the 
     input X, and on whether GPU is available.
-    If no GPU is used, X and the probe are converted from float16 to float32, if necessary.
+    If no GPU is used, X and the probe are converted from float16 to float32,
+    since computing in float16 on CPU is not recommended.
     Otherwise, dtype of X and the probe are left unchanged. 
 
     Parameters
