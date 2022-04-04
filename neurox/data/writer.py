@@ -160,10 +160,7 @@ class ActivationsWriterManager(ActivationsWriter):
                 _writer.open()
                 self.writers.append(_writer)
         else:
-            if self.base_writer == HDF5ActivationsWriter:
-                _writer = self.base_writer(self.filename, dtype=self.dtype)
-            else:
-                _writer = self.base_writer(self.filename)
+            _writer = self.base_writer(self.filename, dtype=self.dtype)
             _writer.open()
             self.writers.append(_writer)
 
@@ -225,13 +222,13 @@ class HDF5ActivationsWriter(ActivationsWriter):
 
 
 class JSONActivationsWriter(ActivationsWriter):
-    def __init__(self, filename):
+    def __init__(self, filename, dtype='float32'):
         super().__init__(filename, filetype="json")
         if not self.filename.endswith(".json"):
             raise ValueError(
                 f"Output filename ({self.filename}) does not end with .json, but output file type is json."
             )
-
+        self.dtype = dtype
         self.activations_file = None
 
     def open(self):
