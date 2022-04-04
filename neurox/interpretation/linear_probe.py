@@ -88,8 +88,7 @@ def _train_probe(
     tasks in order to train probes for them. A logistic regression model
     is trained with Cross Entropy loss for classification tasks and a linear
     regression model is trained with MSE loss for regression tasks. The
-    optimizer used is Adam with default ``torch.optim`` hyperparameters.
-    On GPU, the probe is trained with mixed precision (amp). 
+    optimizer used is Adam with default ``torch.optim`` hyperparameters. 
     The individual batches generated from the X_train inputs are converted to flaot32, such that
     the full X_train can be stored in another dtype, such as float16.
 
@@ -178,17 +177,15 @@ def _train_probe(
             # Forward + Backward + Optimize
             optimizer.zero_grad()
             
-            with torch.cuda.amp.autocast(): # for mixed precision
-                outputs = probe(inputs)
-                if task_type == "regression":
-                    outputs = outputs.squeeze()
-                weights = list(probe.parameters())[0]
-
-                loss = (
-                    criterion(outputs, labels)
-                    + lambda_l1 * l1_penalty(weights)
-                    + lambda_l2 * l2_penalty(weights)
-                )
+            outputs = probe(inputs)
+            if task_type == "regression":
+                outputs = outputs.squeeze()
+            weights = list(probe.parameters())[0]
+            loss = (
+                criterion(outputs, labels)
+                + lambda_l1 * l1_penalty(weights)
+                + lambda_l2 * l2_penalty(weights)
+            )
             loss.backward()
             optimizer.step()
 
