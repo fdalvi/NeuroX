@@ -335,11 +335,10 @@ def evaluate_probe(
     This method evaluates a trained probe on the given data, and supports
     several standard metrics.
 
-    Precision with which the probe is evaluated depends on the dtype of the 
-    input X, and on whether GPU is available.
-    If no GPU is used, X and the probe are converted from float16 to float32,
-    since computing in float16 on CPU is not recommended.
-    Otherwise, dtype of X and the probe are left unchanged. 
+    The probe is always evaluated in full precision, regardless of the dtype 
+    of ``X`` and regardless of the device (CPU/GPU).
+    If ``X`` and the ``probe`` object are provided with a different dtype,
+    they are converted to float32. ``X`` is converted in batches.
 
     Parameters
     ----------
@@ -347,8 +346,7 @@ def evaluate_probe(
         Trained probe model
     X : numpy.ndarray
         Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
-        output of ``interpretation.utils.create_tensors``. ``dtype`` of the
-        matrix must be ``np.float32`` or ``np.float16``
+        output of ``interpretation.utils.create_tensors``. 
     y : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. For classification, 0-indexed class labels for each input token
@@ -391,8 +389,9 @@ def evaluate_probe(
 
     if use_gpu:
         probe = probe.cuda()
-        if X.dtype == 'float16': # cuda, fp16 in X: perform eval in half precision
-            probe = probe.half()
+
+    # always evaluate in full precision
+    probe = probe.float()  
 
     # Test the Model
     y_pred = []
@@ -408,9 +407,6 @@ def evaluate_probe(
         predictions = []
         src_word = -1
 
-    convert_to_full_precision = not(use_gpu) and X.dtype=='float16'
-    if convert_to_full_precision:
-        probe = probe.float()
     for inputs, labels in progressbar(
         utils.batch_generator(
             torch.from_numpy(X), torch.from_numpy(y), batch_size=batch_size
@@ -420,8 +416,10 @@ def evaluate_probe(
         if use_gpu:
             inputs = inputs.cuda()
             labels = labels.cuda()
-        elif convert_to_full_precision:
-            inputs = inputs.float()
+        
+        # always evaluate in full precision
+        inputs = inputs.float()
+
         inputs = Variable(inputs)
         labels = Variable(labels)
 
