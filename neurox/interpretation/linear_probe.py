@@ -89,8 +89,9 @@ def _train_probe(
     is trained with Cross Entropy loss for classification tasks and a linear
     regression model is trained with MSE loss for regression tasks. The
     optimizer used is Adam with default ``torch.optim`` hyperparameters. 
-    The individual batches generated from the X_train inputs are converted to flaot32, such that
-    the full X_train can be stored in another dtype, such as float16.
+    The individual batches generated from the X_train inputs are converted to 
+    float32, such that the full X_train can be stored in another dtype, 
+    such as float16.
 
     Parameters
     ----------
