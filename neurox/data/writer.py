@@ -153,10 +153,7 @@ class ActivationsWriterManager(ActivationsWriter):
         if self.decompose_layers:
             for layer_idx in self.layers:
                 local_filename = f"{self.filename[:-5]}-layer{layer_idx}.{self.filename[-4:]}"
-                if self.base_writer == HDF5ActivationsWriter:
-                    _writer = self.base_writer(local_filename, dtype=self.dtype)
-                else:
-                    _writer = self.base_writer(local_filename)
+                _writer = self.base_writer(local_filename, dtype=self.dtype)
                 _writer.open()
                 self.writers.append(_writer)
         else:
