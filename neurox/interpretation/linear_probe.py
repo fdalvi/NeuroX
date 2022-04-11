@@ -88,7 +88,10 @@ def _train_probe(
     tasks in order to train probes for them. A logistic regression model
     is trained with Cross Entropy loss for classification tasks and a linear
     regression model is trained with MSE loss for regression tasks. The
-    optimizer used is Adam with default ``torch.optim`` hyperparameters.
+    optimizer used is Adam with default ``torch.optim`` hyperparameters. 
+    The individual batches generated from the X_train inputs are converted to 
+    float32, such that the full X_train can be stored in another dtype, 
+    such as float16.
 
     Parameters
     ----------
@@ -168,16 +171,17 @@ def _train_probe(
             if use_gpu:
                 inputs = inputs.cuda()
                 labels = labels.cuda()
+            inputs = inputs.float()
             inputs = Variable(inputs)
             labels = Variable(labels)
 
             # Forward + Backward + Optimize
             optimizer.zero_grad()
+            
             outputs = probe(inputs)
             if task_type == "regression":
                 outputs = outputs.squeeze()
             weights = list(probe.parameters())[0]
-
             loss = (
                 criterion(outputs, labels)
                 + lambda_l1 * l1_penalty(weights)
@@ -331,14 +335,18 @@ def evaluate_probe(
     This method evaluates a trained probe on the given data, and supports
     several standard metrics.
 
+    The probe is always evaluated in full precision, regardless of the dtype 
+    of ``X`` and regardless of the device (CPU/GPU).
+    If ``X`` and the ``probe`` object are provided with a different dtype,
+    they are converted to float32. ``X`` is converted in batches.
+
     Parameters
     ----------
     probe : interpretation.linear_probe.LinearProbe
         Trained probe model
     X : numpy.ndarray
         Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
-        output of ``interpretation.utils.create_tensors``. ``dtype`` of the
-        matrix must be ``np.float32``
+        output of ``interpretation.utils.create_tensors``. 
     y : numpy.ndarray
         Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
         token. For classification, 0-indexed class labels for each input token
@@ -382,6 +390,9 @@ def evaluate_probe(
     if use_gpu:
         probe = probe.cuda()
 
+    # always evaluate in full precision
+    probe = probe.float()  
+
     # Test the Model
     y_pred = []
 
@@ -405,6 +416,10 @@ def evaluate_probe(
         if use_gpu:
             inputs = inputs.cuda()
             labels = labels.cuda()
+        
+        # always evaluate in full precision
+        inputs = inputs.float()
+
         inputs = Variable(inputs)
         labels = Variable(labels)
 
