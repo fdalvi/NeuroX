@@ -7,9 +7,11 @@ both layer-wise and neuron-wise analysis.
         `Dalvi, Fahim, et al. "What is one grain of sand in the desert? analyzing individual neurons in deep nlp models." Proceedings of the AAAI Conference on Artificial Intelligence. Vol. 33. No. 01. 2019. <https://ojs.aaai.org/index.php/AAAI/article/view/4592>`_
 """
 import numpy as np
+import time
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from group_lasso import LogisticGroupLasso
 
 from . import metrics
 from . import utils
@@ -199,15 +201,76 @@ def _train_probe(
 
     return probe
 
+def _train_sgl_probe(X_train,
+                     Y_train,
+                     n_layers, 
+                     group_reg=0,
+                     l1_reg=0,
+                     n_iter=100,
+                     tol = 1e-05,
+                     scale_reg='inverse_group_size',
+                     subsampling_scheme=None,
+                     fit_intercept=True,
+                     random_state=None,
+                     warm_start=False
+                     
+):
+    """
+    Trains a logistic regression probe with Sparse Group Lasso regularization.
+    """
+    LogisticGroupLasso.LOG_LOSSES = True
+    n_neurons_per_layer = int(X_train.shape[1]/n_layers)
+    group_index = utils.get_group_index(n_layers, n_neurons_per_layer)
+    sgl_probe = LogisticGroupLasso(groups=group_index, group_reg=group_reg, l1_reg=l1_reg, scale_reg=scale_reg, supress_warning=True) 
+    start = time.time()
+    print("Training SGL probe...")
+    sgl_probe.fit(X_train, Y_train)
+    end = time.time()
+    print("Training time = " + str((end-start)/3600) + " hours")
+    
+    return sgl_probe
+
+def _probe_param_init(kwargs) :
+        
+        if "n_iter" not in kwargs :
+            kwargs["n_iter"] = 100
+        
+        if "tol" not in kwargs :
+            kwargs["tol"] = 1e-05
+        
+        if "scale_reg" not in kwargs :
+            kwargs["scale_reg"] = "inverse_group_size"
+        
+        if "subsampling_scheme" not in kwargs :
+            kwargs["subsampling_scheme"] = None
+       
+        if "fit_intercept" not in kwargs :
+            kwargs["fit_intercept"] = True
+        
+        if "random_state" not in kwargs :
+            kwargs["random_state"] = None
+        
+        if "warm_start" not in kwargs :
+            kwargs["warm_start"] = False
+            
+        if "num_epochs" not in kwargs :
+            kwargs["num_epochs"] = 10
+            
+        if "batch_size" not in kwargs :
+            kwargs["batch_size"] = 32
+            
+        if "learning_rate" not in kwargs :
+            kwargs["learning_rate"] = 0.001
+            
+        return kwargs
+
 def train_logistic_regression_probe(
     X_train,
     y_train,
-    lambda_l1=0,
-    lambda_l2=0,
-    num_epochs=10,
-    batch_size=32,
-    learning_rate=0.001,
+    regularization = "elastic_net",
+    **kwargs
 ):
+    
     """
     Train a logistic regression probe.
 
@@ -248,17 +311,52 @@ def train_logistic_regression_probe(
         Trained probe for the given task.
 
     """
-    return _train_probe(
-        X_train,
-        y_train,
-        task_type="classification",
-        lambda_l1=lambda_l1,
-        lambda_l2=lambda_l2,
-        num_epochs=num_epochs,
-        batch_size=batch_size,
-        learning_rate=learning_rate,
-    )
-
+    kwargs = _probe_param_init(kwargs)
+        
+    if (regularization == "sparse_group_lasso") :            
+        return _train_sgl_probe(
+            X_train,
+            y_train,
+            n_layers=kwargs["n_layers"],
+            group_reg=kwargs["group_reg"],
+            l1_reg=kwargs["l1_reg"],
+            n_iter=kwargs["n_iter"],
+            tol=kwargs["tol"],
+            scale_reg=kwargs["scale_reg"],
+            subsampling_scheme=kwargs["subsampling_scheme"],
+            fit_intercept=kwargs["fit_intercept"],
+            random_state=kwargs["random_state"],
+            warm_start=kwargs["warm_start"]
+        )
+    
+    elif (regularization == "group_lasso") :
+        return _train_sgl_probe(
+            X_train,
+            y_train,
+            n_layers=kwargs["n_layers"],
+            group_reg=kwargs["group_reg"],
+            l1_reg=0,
+            n_iter=kwargs["n_iter"],
+            tol=kwargs["tol"],
+            scale_reg=kwargs["scale_reg"],
+            subsampling_scheme=kwargs["subsampling_scheme"],
+            fit_intercept=kwargs["fit_intercept"],
+            random_state=kwargs["random_state"],
+            warm_start=kwargs["warm_start"]
+        )
+        
+    else :
+        return _train_probe(
+            X_train,
+            y_train,
+            task_type="classification",
+            lambda_l1=kwargs["lambda_l1"],
+            lambda_l2=kwargs["lambda_l2"],
+            num_epochs=kwargs["num_epochs"],
+            batch_size=kwargs["batch_size"],
+            learning_rate=kwargs["learning_rate"],
+        )
+        
 
 def train_linear_regression_probe(
     X_train,
@@ -317,6 +415,10 @@ def train_linear_regression_probe(
         batch_size=batch_size,
         learning_rate=learning_rate,
     )
+
+def _if_sgl(probe) :
+    
+    return isinstance(probe,LogisticGroupLasso)
 
 
 def evaluate_probe(
@@ -383,6 +485,12 @@ def evaluate_probe(
 
     """
     progressbar = utils.get_progress_bar()
+    
+    if _if_sgl(probe)==True :
+        
+        weights = probe.coef_.transpose()
+        
+        
 
     # Check if we can use GPU's for evaluation
     use_gpu = torch.cuda.is_available()

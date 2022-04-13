@@ -623,3 +623,25 @@ def save_probe(probe_path, probe, mappings):
 
     """
     pass
+
+def get_group_index(n_layers=13, n_neurons_per_layer=768) :
+    """
+    Returns a group index array that specifies which layer/group each neuron belongs     to.Parameter for SGL probe.
+    
+    Parameters
+    ----------
+    n_layers : int, optional
+        Number of layers/groups in the model. Defaults to 13.
+    n_neurons_per_layer : int, optional
+        Number of neurons in each layer/group of the model. Defaults to 768.
+    
+    Returns
+    -------
+    group_index : numpy.array
+        Numpy vector of size [``n_layers * n_neurons_per_layer``]
+        
+    """
+    x=np.arange(1,n_layers+1)
+    group_index = np.repeat(x,n_neurons_per_layer)
+    
+    return(group_index)
