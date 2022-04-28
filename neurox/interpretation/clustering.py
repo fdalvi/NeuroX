@@ -4,7 +4,7 @@ This module contains functions to perform clustering analysis on neuron
 activations.
 """
 import numpy as np
-from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import pdist, squareform
 
 

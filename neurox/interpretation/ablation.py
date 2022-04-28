@@ -5,6 +5,7 @@ neurons from a given set.
 """
 import numpy as np
 
+
 def keep_specific_neurons(X, neuron_list):
     """
     Filter activations so that they only contain specific neurons.
@@ -28,6 +29,7 @@ def keep_specific_neurons(X, neuron_list):
 
     """
     return X[:, neuron_list]
+
 
 def filter_activations_keep_neurons(X, neurons_to_keep):
     """
@@ -130,6 +132,7 @@ def zero_out_activations_remove_neurons(X, neurons_to_remove):
     _X[:, neurons_to_remove] = 0
 
     return _X
+
 
 def filter_activations_by_layers(
     X, layers_to_keep, num_layers, bidirectional_filtering="none"

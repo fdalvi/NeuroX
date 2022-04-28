@@ -7,8 +7,8 @@ def create_sequence_labeling_dataset(
     train_tokens,
     dev_source=None,
     test_source=None,
-    case_sensitive=True,    
-    sample_from="same"
+    case_sensitive=True,
+    sample_from="same",
 ):
     """
     Method that prepares labels for a control task, as defined in §2.1 of `Hewitt and Liang (2019) <https://aclanthology.org/D19-1275.pdf>`

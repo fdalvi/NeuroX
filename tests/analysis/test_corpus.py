@@ -1,9 +1,9 @@
 import random
 import unittest
 
-import numpy as np
-
 import neurox.analysis.corpus as corpus
+
+import numpy as np
 
 
 class TestGetTopWords(unittest.TestCase):
@@ -79,5 +79,12 @@ class TestGetTopWords(unittest.TestCase):
     def test_min_words_and_min_threshold_exception(self):
         "Throw exception if both num_tokens and min_threshold is set"
 
-        self.assertRaises(ValueError, corpus.get_top_words, self.tokens, self.activations, 1, num_tokens=10 , min_threshold=0.5)
-        
+        self.assertRaises(
+            ValueError,
+            corpus.get_top_words,
+            self.tokens,
+            self.activations,
+            1,
+            num_tokens=10,
+            min_threshold=0.5,
+        )

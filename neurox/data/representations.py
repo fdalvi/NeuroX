@@ -197,15 +197,12 @@ def char_get_avg_activations(tokens, activations):
         assert (
             tokens["source_aux"][i].count("_") + 1 - tokens["source"][i].count("_")
             == num_words
-        ), (
-            "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s"
-            % (
-                i + 1,
-                num_words,
-                tokens["source_aux"][i].count("_") + 1,
-                " ".join(tokens["source"][i]),
-                " ".join(tokens["source_aux"][i]),
-            )
+        ), "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s" % (
+            i + 1,
+            num_words,
+            tokens["source_aux"][i].count("_") + 1,
+            " ".join(tokens["source"][i]),
+            " ".join(tokens["source_aux"][i]),
         )
 
         prev_idx = 0
@@ -272,15 +269,12 @@ def char_get_last_activations(tokens, activations, is_brnn=True):
         assert (
             tokens["source_aux"][i].count("_") + 1 - tokens["source"][i].count("_")
             == num_words
-        ), (
-            "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s"
-            % (
-                i + 1,
-                num_words,
-                tokens["source_aux"][i].count("_") + 1,
-                " ".join(tokens["source"][i]),
-                " ".join(tokens["source_aux"][i]),
-            )
+        ), "Number of words dont match! (line: %d, source: %d, aux: %d)\n%s\n%s" % (
+            i + 1,
+            num_words,
+            tokens["source_aux"][i].count("_") + 1,
+            " ".join(tokens["source"][i]),
+            " ".join(tokens["source_aux"][i]),
         )
 
         rnn_boundary = int(num_neurons / 2)
