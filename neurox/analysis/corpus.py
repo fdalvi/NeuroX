@@ -87,6 +87,6 @@ def get_top_words(tokens, activations, neuron, num_tokens=0, min_threshold=None)
     ]
 
     if num_tokens > 0:
-        sorted_types_scores = sorted_types_scores[:num_tokens] 
+        sorted_types_scores = sorted_types_scores[:num_tokens]
 
     return sorted_types_scores

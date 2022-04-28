@@ -4,7 +4,7 @@ Module that wraps around several standard metrics
 import numpy as np
 
 from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import matthews_corrcoef as mcc, f1_score
+from sklearn.metrics import f1_score, matthews_corrcoef as mcc
 
 
 def _numpyfy(x):
@@ -48,7 +48,10 @@ def accuracy(preds, labels):
     labels = _numpyfy(labels)
     return (preds == labels).mean()
 
+
 import json
+
+
 def f1(preds, labels):
     """
     F-Score or F1 score.
@@ -222,17 +225,17 @@ def compute_score(preds, labels, metric):
     score : float
         Score of the model with the chosen metric
     """
-    if metric == 'accuracy':
+    if metric == "accuracy":
         return accuracy(preds, labels)
-    elif metric == 'f1':
+    elif metric == "f1":
         return f1(preds, labels)
-    elif metric == 'accuracy_and_f1':
+    elif metric == "accuracy_and_f1":
         return accuracy_and_f1(preds, labels)
-    elif metric == 'pearson':
+    elif metric == "pearson":
         return pearson(preds, labels)
-    elif metric == 'spearman':
+    elif metric == "spearman":
         return spearman(preds, labels)
-    elif metric == 'pearson_and_spearman':
+    elif metric == "pearson_and_spearman":
         return pearson_and_spearman(preds, labels)
-    elif metric == 'matthews_corrcoef':
+    elif metric == "matthews_corrcoef":
         return matthews_corrcoef(preds, labels)
