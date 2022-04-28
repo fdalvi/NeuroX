@@ -57,7 +57,7 @@ def _create_binary_data(tokens, activations, binary_filter, balance_data=False):
     negative_class_words = []
     negative_class_activations = []
 
-    print("Creating binary dataset ...")
+    print('Creating binary dataset ...')
     for s_idx, sentences in enumerate(tokens["source"]):
         for w_idx, word in enumerate(sentences):
             if filter_fn(word):
