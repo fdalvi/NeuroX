@@ -4,8 +4,8 @@ import sys
 import svgwrite
 
 from neurox.data.extraction.transformers_extractor import (
-    get_model_and_tokenizer,
     extract_sentence_representations,
+    get_model_and_tokenizer,
 )
 
 

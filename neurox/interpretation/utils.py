@@ -1,7 +1,9 @@
 import math
+
 import numpy as np
 
 from imblearn.under_sampling import RandomUnderSampler
+
 
 def isnotebook():
     """
@@ -24,6 +26,7 @@ def isnotebook():
     except NameError:
         return False  # Probably standard Python interpreter
 
+
 def get_progress_bar():
     """
     Utility function to get a progress bar depending on the environment the code
@@ -43,6 +46,7 @@ def get_progress_bar():
         from tqdm import tqdm as progressbar
 
     return progressbar
+
 
 def batch_generator(X, y, batch_size=32):
     """
@@ -80,6 +84,7 @@ def batch_generator(X, y, batch_size=32):
             start_idx : start_idx + batch_size
         ]
         start_idx = start_idx + batch_size
+
 
 def tok2idx(tokens):
     """
@@ -139,7 +144,14 @@ def count_target_words(tokens):
 
 
 def create_tensors(
-    tokens, activations, task_specific_tag, mappings=None, task_type="classification", binarized_tag = None, balance_data = False, dtype=None
+    tokens,
+    activations,
+    task_specific_tag,
+    mappings=None,
+    task_type="classification",
+    binarized_tag=None,
+    balance_data=False,
+    dtype=None,
 ):
     """
     Method to pre-process loaded datasets into tensors that can be used to train
@@ -176,7 +188,7 @@ def create_tensors(
         Tag/Label to create binary data. All other labels in the dataset are changed
         to OTHER. Defaults to None in which case the data labels are processed as-is.
     balance_data : bool, optional
-        Whether the incoming data should be balanced. Data is balanced using 
+        Whether the incoming data should be balanced. Data is balanced using
         utils.balance_binary_class_data for binary data and utils.balance_multi_class_data
         for multi-class data using undersampling. Defaults to False.
     dtype : str, optional
@@ -222,7 +234,7 @@ def create_tensors(
             src2idx, idx2src = mappings
     else:
         if task_type == "classification":
-            if binarized_tag:                
+            if binarized_tag:
                 label2idx = {binarized_tag: 1, "OTHER": 0}
                 idx2label = {1: binarized_tag, 0: "OTHER"}
             else:
@@ -236,10 +248,10 @@ def create_tensors(
     if task_type == "classification":
         print("length of target dictionary: ", len(label2idx))
 
-    if dtype==None:
-        dtype=activations[0].dtype
+    if dtype == None:
+        dtype = activations[0].dtype
     X = np.zeros((num_tokens, num_neurons), dtype=dtype)
-    if task_type=="classification":
+    if task_type == "classification":
         y = np.zeros((num_tokens,), dtype=np.int)
     else:
         y = np.zeros((num_tokens,), dtype=np.float32)
@@ -257,10 +269,7 @@ def create_tensors(
                 current_target_token = target_tokens[instance_idx][token_idx]
                 if binarized_tag and current_target_token != binarized_tag:
                     current_target_token = "OTHER"
-                if (
-                    mappings is not None
-                    and current_target_token not in label2idx
-                ):
+                if mappings is not None and current_target_token not in label2idx:
                     y[idx] = label2idx[task_specific_tag]
                 else:
                     y[idx] = label2idx[current_target_token]
@@ -273,21 +282,21 @@ def create_tensors(
     print("Total instances: %d" % (num_tokens))
     print(list(example_set)[:20])
 
-    print ("Number of samples: ", X.shape[0])
+    print("Number of samples: ", X.shape[0])
 
     if balance_data:
-        print ("Balancing data ... ")
+        print("Balancing data ... ")
         if binarized_tag:
             X, y = balance_binary_class_data(X, y)
         else:
             X, y = balance_multi_class_data(X, y)
-        print ("Number of samples after balancing: ", X.shape[0])
+        print("Number of samples after balancing: ", X.shape[0])
 
     labels, freqs = np.unique(y, return_counts=True)
 
-    print ("Stats: Labels with their frequencies in the final set")
+    print("Stats: Labels with their frequencies in the final set")
     for idx, label in enumerate(labels):
-        print (idx2label[label], freqs[idx])
+        print(idx2label[label], freqs[idx])
 
     if task_type == "classification":
         return X, y, (label2idx, idx2label, src2idx, idx2src)
@@ -575,6 +584,7 @@ def balance_multi_class_data(X, y, num_required_instances=None):
 
     return X_res, y_res
 
+
 def load_probe(probe_path):
     """
     Loads a probe and its associated mappings from probe_path
@@ -600,6 +610,7 @@ def load_probe(probe_path):
 
     """
     pass
+
 
 def save_probe(probe_path, probe, mappings):
     """
