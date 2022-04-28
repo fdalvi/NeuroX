@@ -15,11 +15,10 @@ import sys
 import numpy as np
 import torch
 
+from neurox.data.writer import ActivationsWriter
 
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel
-
-from neurox.data.writer import ActivationsWriter
+from transformers import AutoModel, AutoTokenizer
 
 
 def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
@@ -103,10 +102,12 @@ def aggregate_repr(state, start, end, aggregation):
         Matrix of size [NUM_LAYERS x LAYER_DIM]
     """
     if end < start:
-        sys.stderr.write("WARNING: An empty slice of tokens was encountered. " +
-            "This probably implies a special unicode character or text " +
-            "encoding issue in your original data that was dropped by the " +
-            "transformer model's tokenizer.\n")
+        sys.stderr.write(
+            "WARNING: An empty slice of tokens was encountered. "
+            + "This probably implies a special unicode character or text "
+            + "encoding issue in your original data that was dropped by the "
+            + "transformer model's tokenizer.\n"
+        )
         return np.zeros((state.shape[0], state.shape[2]))
     if aggregation == "first":
         return state[:, start, :]
@@ -124,7 +125,7 @@ def extract_sentence_representations(
     include_embeddings=True,
     aggregation="last",
     tokenization_counts={},
-    dtype='float32'
+    dtype="float32",
 ):
     """
     Get representations for one sentence
@@ -209,7 +210,7 @@ def extract_sentence_representations(
     detokenized = []
     final_hidden_states = np.zeros(
         (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2]),
-        dtype=dtype
+        dtype=dtype,
     )
     inputs_truncated = False
 
@@ -219,9 +220,11 @@ def extract_sentence_representations(
 
         # Check for truncated hidden states in the case where the
         # original word was actually tokenized
-        if  (tokenization_counts[token] != 0 and current_word_start_idx >= all_hidden_states.shape[1]) \
-                or current_word_end_idx > all_hidden_states.shape[1]:
-            final_hidden_states = final_hidden_states[:, :len(detokenized), :]
+        if (
+            tokenization_counts[token] != 0
+            and current_word_start_idx >= all_hidden_states.shape[1]
+        ) or current_word_end_idx > all_hidden_states.shape[1]:
+            final_hidden_states = final_hidden_states[:, : len(detokenized), :]
             inputs_truncated = True
             break
 
@@ -259,7 +262,7 @@ def extract_representations(
     ignore_embeddings=False,
     decompose_layers=False,
     filter_layers=None,
-    dtype='float32'
+    dtype="float32",
 ):
     print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
@@ -275,10 +278,16 @@ def extract_representations(
             return
 
     print("Preparing output file")
-    writer = ActivationsWriter.get_writer(output_file, filetype=output_type, decompose_layers=decompose_layers, filter_layers=filter_layers, dtype=dtype)
+    writer = ActivationsWriter.get_writer(
+        output_file,
+        filetype=output_type,
+        decompose_layers=decompose_layers,
+        filter_layers=filter_layers,
+        dtype=dtype,
+    )
 
     print("Extracting representations from model")
-    tokenization_counts = {} # Cache for tokenizer rules
+    tokenization_counts = {}  # Cache for tokenizer rules
     for sentence_idx, sentence in enumerate(corpus_generator(input_corpus)):
         hidden_states, extracted_words = extract_sentence_representations(
             sentence,
@@ -288,7 +297,7 @@ def extract_representations(
             include_embeddings=(not ignore_embeddings),
             aggregation=aggregation,
             tokenization_counts=tokenization_counts,
-            dtype=dtype
+            dtype=dtype,
         )
 
         print("Hidden states: ", hidden_states.shape)
@@ -341,7 +350,9 @@ def main():
         "last",
     ], "Invalid aggregation option, please specify first, average or last."
 
-    assert not(args.filter_layers is not None and args.ignore_embeddings is True), "--filter_layers and --ignore_embeddings cannot be used at the same time"
+    assert not (
+        args.filter_layers is not None and args.ignore_embeddings is True
+    ), "--filter_layers and --ignore_embeddings cannot be used at the same time"
 
     if not args.disable_cuda and torch.cuda.is_available():
         device = torch.device("cuda")
