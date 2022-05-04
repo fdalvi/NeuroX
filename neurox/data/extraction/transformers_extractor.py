@@ -272,10 +272,18 @@ def extract_representations(
     print("Reading input corpus")
 
     def corpus_generator(input_corpus_path):
-        with open(input_corpus_path, "r") as fp:
-            for line in fp:
-                yield line.strip()
+        if not isinstance(input_corpus_path, list) and os.path.exists(input_corpus_path):
+            with open(input_corpus_path, "r") as fp:
+                for line in fp:
+                    yield line.strip()
+                return
+        else:
+            if isinstance(input_corpus_path,str):
+                input_corpus_path = [input_corpus_path]
+            for item in input_corpus_path:
+                yield item.strip()
             return
+
 
     print("Preparing output file")
     writer = ActivationsWriter.get_writer(
