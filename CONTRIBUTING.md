@@ -49,6 +49,17 @@ You can also use python's built-in `unittest` module:
 python -m unittest
 ```
 
+### Update Version
+
+NeuroX uses semantic version (major.minor.patch). To update version, use `bump2version`:
+```bash
+# increment patch part of the version
+bump2version patch
+
+# increment minor part of the version and tag, commit
+bump2version --tag --commit minor
+```
+
 ### Documentation
 The following command will build the documentation locally and launch the page in your browser:
 ```bash
