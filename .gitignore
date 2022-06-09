@@ -18,4 +18,6 @@ build
 dist
 
 # Python envs
-.envs
+.envs*.swp
+venv
+.venv
