@@ -1,0 +1,16 @@
+version: 2
+sphinx:
+  configuration: docs/conf.py
+  # fail_on_warning: true
+python:
+  install:
+    - requirements: docs/requirements.txt
+    - path: .
+build:
+  os: "ubuntu-20.04"
+  tools:
+    python: "3.8"
+  jobs:
+    pre_build:
+      - sphinx-apidoc -o docs neurox sphinx-apidoc --templatedir docs/_templates
+      - cp docs/_templates/*.rst docs
