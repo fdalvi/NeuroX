@@ -13,3 +13,4 @@ build:
   jobs:
     pre_build:
       - sphinx-apidoc -o docs neurox sphinx-apidoc --templatedir docs/_templates
+      - cp docs/_templates/*.rst docs

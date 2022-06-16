@@ -8,6 +8,7 @@
 
 # Temp files
 tmp
+*.swp
 
 # macOS junk
 *DS_Store
@@ -18,6 +19,6 @@ build
 dist
 
 # Python envs
-.envs*.swp
+.envs
 venv
 .venv
