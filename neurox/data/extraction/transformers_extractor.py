@@ -275,7 +275,7 @@ def extract_representations(
         with open(input_corpus_path, "r") as fp:
             for line in fp:
                 yield line.strip()
-
+        return
 
     print("Preparing output file")
     writer = ActivationsWriter.get_writer(
