@@ -32,9 +32,9 @@ def get_neuron_ordering(X_train, y_train, threshold=0.05):
 
     """
     X_train[np.abs(X_train) < threshold] = 0
-    score = []
+    scores = []
     for i in range(X_train.shape[1]):
-        score.append(average_precision_score(y_train, X_train[:, i]))
-    score = np.array(score)
-    ranking = np.argsort(score)[::-1]
+        scores.append(average_precision_score(y_train, X_train[:, i]))
+    scores = np.array(scores)
+    ranking = np.argsort(scores)[::-1]
     return ranking
