@@ -14,7 +14,15 @@ class TestGetNeuronOrdering(unittest.TestCase):
         # The neuron 0 is perfectly correlated with label, the neuron 1 is partly correlated
         # The neuron 2 is not correlated
 
-        X = np.array([[-1.1, -1.05, 0.01], [-1.05, 0, 0.005], [1.1, 1.05, 0.003], [1.03, 0, 0.1]],dtype=float)
+        X = np.array(
+            [
+                [-1.1, -1.05, 0.01],
+                [-1.05, 0, 0.005],
+                [1.1, 1.05, 0.003],
+                [1.03, 0, 0.1],
+            ],
+            dtype=float,
+        )
         y = np.array([0, 0, 1, 1])
         expected_neuron_order = [0, 1, 2]
         probe = train_probe(X, y)
