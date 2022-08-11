@@ -104,48 +104,51 @@ class GaussianProbe():
         mutual_inf = (entropy - conditional_entropy) / torch.tensor(2.0).log()
         return accuracy, mutual_inf.item(), (mutual_inf / entropy).item()
 
-    def evaluate_probe(self, X_test, y_test,selected_neurons):
-        self.test_features = torch.tensor(X_test).to(self.device)
-        
-        self.test_labels = torch.tensor(y_test).to(self.device).long()
-        self.feature_sets['test'] = self.test_features
-        self.label_sets['test'] = self.test_labels
-        self.test_categorical = self._get_categorical('test')
 
-        self.categorical_sets['test'] = self.test_categorical
-        
-        self._get_distributions(selected_neurons)
+    
+def train_probe(X,y):
+    return GaussianProbe(X,y)
+def evaluate_probe(probe, X_test, y_test, selected_neurons):
+    probe.test_features = torch.tensor(X_test).to(probe.device)
+    
+    probe.test_labels = torch.tensor(y_test).to(probe.device).long()
+    probe.feature_sets['test'] = probe.test_features
+    probe.label_sets['test'] = probe.test_labels
 
-        self._compute_probs(selected_neurons, 'test')
-        test_acc, test_mi, test_nmi = self._predict('test')
-        return test_acc
-    def get_neuron_ordering(self, num_of_neurons):
-        selected_neurons = []
-        # for most configs it crashes even before 400, but anyway we don't need such a large number
-        for num_of_neuron in range(len(selected_neurons), num_of_neurons):
-            # for num_of_neurons in range(len(selected_neurons), constants.SUBSET_SIZE):
-            best_neuron = -1
-            best_acc = 0.
-            best_mi, best_nmi = float('-inf'), float('-inf')
+    probe.test_categorical = probe._get_categorical('test')
+
+    probe.categorical_sets['test'] = probe.test_categorical
+        
+    probe._get_distributions(selected_neurons)
+
+    probe._compute_probs(selected_neurons, 'test')
+    test_acc, test_mi, test_nmi = probe._predict('test')
+    return test_acc
+def get_neuron_ordering(probe, num_of_neurons):
+    selected_neurons = []
+    for num_of_neuron in range(len(selected_neurons), num_of_neurons):
+        best_neuron = -1
+        best_acc = 0.
+        best_mi, best_nmi = float('-inf'), float('-inf')
             
-            acc_on_best_mi = 0.
-            mi_on_best_acc, nmi_on_best_acc = 0., 0.
-            for neuron in range(768):
-                if neuron in selected_neurons:
-                    continue
-                self._get_distributions(selected_neurons + [neuron])
-                self._compute_probs(selected_neurons + [neuron], 'train')
-                acc, mi, nmi = self._predict('train')
+        acc_on_best_mi = 0.
+        mi_on_best_acc, nmi_on_best_acc = 0., 0.
+        for neuron in range(probe.train_features.shape[1]):
+            if neuron in selected_neurons:
+                continue
+            probe._get_distributions(selected_neurons + [neuron])
+            probe._compute_probs(selected_neurons + [neuron], 'train')
+            acc, mi, nmi = probe._predict('train')
                 
-                if mi > best_mi:
-                    best_mi = mi
-                    best_nmi = nmi
-                    best_neuron = neuron
-                    acc_on_best_mi = acc
+            if mi > best_mi:
+                best_mi = mi
+                best_nmi = nmi
+                best_neuron = neuron
+                acc_on_best_mi = acc
                     
-            selected_neurons.append(best_neuron)
-            print('added neuron ', best_neuron)
-            self._get_distributions(selected_neurons)
-            self._compute_probs(selected_neurons, 'train')
-            train_acc, train_mi, train_nmi = self._predict('train')
-        return selected_neurons
+        selected_neurons.append(best_neuron)
+        print('added neuron ', best_neuron)
+        probe._get_distributions(selected_neurons)
+        probe._compute_probs(selected_neurons, 'train')
+        train_acc, train_mi, train_nmi = probe._predict('train')
+    return selected_neurons
