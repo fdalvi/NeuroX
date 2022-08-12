@@ -1,10 +1,8 @@
 """Representations Extractor for ``transformers`` toolkit models.
-
 Module that given a file with input sentences and a ``transformers``
 model, extracts representations from all layers of the model. The script
 supports aggregation over sub-words created due to the tokenization of
 the provided model.
-
 Can also be invoked as a script as follows:
     ``python -m neurox.data.extraction.transformers_extractor``
 """
@@ -25,21 +23,17 @@ def get_model_and_tokenizer(model_desc, device="cpu", random_weights=False):
     """
     Automatically get the appropriate ``transformers`` model and tokenizer based
     on the model description
-
     Parameters
     ----------
     model_desc : str
         Model description; can either be a model name like ``bert-base-uncased``,
         a comma separated list indicating <model>,<tokenizer> (since 1.0.8),
         or a path to a trained model
-
     device : str, optional
         Device to load the model on, cpu or gpu. Default is cpu.
-
     random_weights : bool, optional
         Whether the weights of the model should be randomized. Useful for analyses
         where one needs an untrained model.
-
     Returns
     -------
     model : transformers model
@@ -68,23 +62,16 @@ def aggregate_repr(state, start, end, aggregation):
     """
     Function that aggregates activations/embeddings over a span of subword tokens.
     This function will usually be called once per word. For example, if we had the sentence::
-
         This is an example
-
     which is tokenized by BPE into::
-
         this is an ex @@am @@ple
-
     The function should be called 4 times::
-
         aggregate_repr(state, 0, 0, aggregation)
         aggregate_repr(state, 1, 1, aggregation)
         aggregate_repr(state, 2, 2, aggregation)
         aggregate_repr(state, 3, 5, aggregation)
-
     Returns a zero vector if end is less than start, i.e. the request is to
     aggregate over an empty slice.
-
     Parameters
     ----------
     state : numpy.ndarray
@@ -95,7 +82,6 @@ def aggregate_repr(state, start, end, aggregation):
         Index of the last subword of the word being processed
     aggregation : {'first', 'last', 'average'}
         Aggregation method for combining subword activations
-
     Returns
     -------
     word_vector : numpy.ndarray
@@ -272,18 +258,9 @@ def extract_representations(
     print("Reading input corpus")
 
     def corpus_generator(input_corpus_path):
-        if not isinstance(input_corpus_path, list) and os.path.exists(
-            input_corpus_path
-        ):
-            with open(input_corpus_path, "r") as fp:
-                for line in fp:
-                    yield line.strip()
-                return
-        else:
-            if isinstance(input_corpus_path, str):
-                input_corpus_path = [input_corpus_path]
-            for item in input_corpus_path:
-                yield item.strip()
+        with open(input_corpus_path, "r") as fp:
+            for line in fp:
+                yield line.strip()
             return
 
     print("Preparing output file")
