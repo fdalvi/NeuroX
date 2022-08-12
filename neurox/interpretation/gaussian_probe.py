@@ -15,6 +15,8 @@ import torch
 
 import torch.distributions.multivariate_normal as mn
 
+from . import metrics
+
 
 class GaussianProbe:
     def __init__(self, X, y):
@@ -136,14 +138,83 @@ class GaussianProbe:
                 list(range(self.probs.shape[0])), labels
             ].mean()
         mutual_inf = (entropy - conditional_entropy) / torch.tensor(2.0).log()
-        return accuracy, mutual_inf.item(), (mutual_inf / entropy).item()
+        return preds, labels, accuracy, mutual_inf.item(), (mutual_inf / entropy).item()
 
 
 def train_probe(X, y):
+    """
+    Train a Gaussian probe.
+    This method trains a linear classifier that can be used as a probe to perform
+    neuron analysis. Use this method when the task that is being probed for is a
+    classification task. A logistic regression model is trained with Cross
+    Entropy loss. The optimizer used is Adam with default ``torch.optim``
+    package hyperparameters.
+    Parameters
+    ----------
+    X_train : numpy.ndarray
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
+        output of ``interpretation.utils.create_tensors``. ``dtype`` of the
+        matrix must be ``np.float32``
+    y_train : numpy.ndarray
+        Numpy Vector with 0-indexed class labels for each input token. The size
+        of the vector must be [``NUM_TOKENS``].  Usually the output of
+        ``interpretation.utils.create_tensors``. Assumes that class labels are
+        continuous from ``0`` to ``NUM_CLASSES-1``. ``dtype`` of the
+        matrix must be ``np.int``
+    Returns
+    -------
+    probe : interpretation.linear_probe.LinearProbe
+        Trained probe for the given task.
+    """
     return GaussianProbe(X, y)
 
 
-def evaluate_probe(probe, X_test, y_test, selected_neurons):
+def evaluate_probe(
+    probe,
+    X_test,
+    y_test,
+    metric="accuracy",
+    return_predictions=False,
+    selected_neurons=list(np.arange(768)),
+):
+    """
+    Evaluates a trained probe.
+    This method evaluates a trained probe on the given data, and supports
+    several standard metrics.
+    The probe is always evaluated in full precision, regardless of the dtype
+    of ``X`` and regardless of the device (CPU/GPU).
+    If ``X`` and the ``probe`` object are provided with a different dtype,
+    they are converted to float32. ``X`` is converted in batches.
+    Parameters
+    ----------
+    probe : interpretation.linear_probe.LinearProbe
+        Trained probe model
+    X : numpy.ndarray
+        Numpy Matrix of size [``NUM_TOKENS`` x ``NUM_NEURONS``]. Usually the
+        output of ``interpretation.utils.create_tensors``.
+    y : numpy.ndarray
+        Numpy Vector of size [``NUM_TOKENS``] with class labels for each input
+        token. For classification, 0-indexed class labels for each input token
+        are expected. For regression, a real value per input token is expected.
+        Usually the output of ``interpretation.utils.create_tensors``
+
+    return_predictions : bool, optional
+        If set to True, actual predictions are also returned along with scores
+        for further use. Defaults to False.
+    metrics : str, optional
+        Metric to use for evaluation scores. For supported metrics see
+        ``interpretation.metrics``
+    Returns
+    -------
+    scores : dict
+        The overall score on the given data with the key ``__OVERALL__``. If
+        ``idx_to_class`` mapping is provided, additional keys representing each
+        class and their associated scores are also part of the dictionary.
+    predictions : list of 3-tuples, optional
+        If ``return_predictions`` is set to True, this list will contain a
+        3-tuple for every input sample, representing
+        ``(source_token, predicted_class, was_predicted_correctly)``
+    """
     probe.test_features = torch.tensor(X_test).to(probe.device)
 
     probe.test_labels = torch.tensor(y_test).to(probe.device).long()
@@ -157,13 +228,34 @@ def evaluate_probe(probe, X_test, y_test, selected_neurons):
     probe._get_distributions(selected_neurons)
 
     probe._compute_probs(selected_neurons, "test")
-    test_acc, test_mi, test_nmi = probe._predict("test")
-    return test_acc
+    preds, labels, test_acc, test_mi, test_nmi = probe._predict("test")
+    result = metrics.compute_score(preds, labels, metric)
+
+    if return_predictions:
+        return preds, result
+    return result
 
 
 def get_neuron_ordering(probe, num_of_neurons):
+    """
+    Get global ordering of neurons from a trained probe.
+    This method returns the global ordering of neurons in a model based on
+    the Gaussian Method.
+
+    Parameters
+    ----------
+    probe : interpretation.gaussian_probe.GaussianProbe
+        Trained probe model
+    num_of_neurons: the number of neurons you want, the method requires a not too large number (<400)
+    Returns
+    -------
+    neuron_ordering : list
+        Numpy array of size ``NUM_NEURONS`` with neurons in decreasing order
+        of importance.
+
+    """
     selected_neurons = []
-    for num_of_neuron in range(len(selected_neurons), num_of_neurons):
+    for num_of_neuron in range(0, num_of_neurons):
         best_neuron = -1
         best_acc = 0.0
         best_mi, best_nmi = float("-inf"), float("-inf")
@@ -175,7 +267,7 @@ def get_neuron_ordering(probe, num_of_neurons):
                 continue
             probe._get_distributions(selected_neurons + [neuron])
             probe._compute_probs(selected_neurons + [neuron], "train")
-            acc, mi, nmi = probe._predict("train")
+            preds, labels, acc, mi, nmi = probe._predict("train")
 
             if mi > best_mi:
                 best_mi = mi
@@ -184,8 +276,7 @@ def get_neuron_ordering(probe, num_of_neurons):
                 acc_on_best_mi = acc
 
         selected_neurons.append(best_neuron)
-        print("added neuron ", best_neuron)
         probe._get_distributions(selected_neurons)
         probe._compute_probs(selected_neurons, "train")
-        train_acc, train_mi, train_nmi = probe._predict("train")
+        preds, labels, train_acc, train_mi, train_nmi = probe._predict("train")
     return selected_neurons

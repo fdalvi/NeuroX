@@ -16,15 +16,15 @@ class TestGetNeuronOrdering(unittest.TestCase):
 
         X = np.array(
             [
-                [-1.1, -1.05, 0.01],
-                [-1.05, 0, 0.005],
-                [1.1, 1.05, 0.003],
-                [1.03, 0, 0.1],
+                [-1.05, -1.1, 0.01],
+                [0, -1.05, 0.005],
+                [1.05, 1.1, 0.003],
+                [0, 1.03, 0.1],
             ],
             dtype=float,
         )
         y = np.array([0, 0, 1, 1])
-        expected_neuron_order = [0, 1, 2]
+        expected_neuron_order = [1, 0, 2]
         probe = train_probe(X, y)
         selected_neurons = get_neuron_ordering(probe, 3)
         self.assertListEqual(list(selected_neurons), expected_neuron_order)
