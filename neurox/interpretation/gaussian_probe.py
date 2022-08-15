@@ -17,6 +17,11 @@ import torch.distributions.multivariate_normal as mn
 
 from . import metrics
 
+"""
+Modified from original version at
+https://github.com/technion-cs-nlp/Individual-Neurons-Pitfalls/blob/main/Gaussian.py
+"""
+
 
 class GaussianProbe:
     def __init__(self, X, y):
@@ -175,7 +180,7 @@ def evaluate_probe(
     y_test,
     metric="accuracy",
     return_predictions=False,
-    selected_neurons=list(np.arange(768)),
+    selected_neurons=None,
 ):
     """
     Evaluates a trained probe.
@@ -215,6 +220,8 @@ def evaluate_probe(
         3-tuple for every input sample, representing
         ``(source_token, predicted_class, was_predicted_correctly)``
     """
+    if selected_neurons == None:
+        selected_neurons = list(np.arange(X_test.shape[1]))
     probe.test_features = torch.tensor(X_test).to(probe.device)
 
     probe.test_labels = torch.tensor(y_test).to(probe.device).long()
@@ -276,7 +283,4 @@ def get_neuron_ordering(probe, num_of_neurons):
                 acc_on_best_mi = acc
 
         selected_neurons.append(best_neuron)
-        probe._get_distributions(selected_neurons)
-        probe._compute_probs(selected_neurons, "train")
-        preds, labels, train_acc, train_mi, train_nmi = probe._predict("train")
     return selected_neurons
