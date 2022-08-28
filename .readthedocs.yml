@@ -1,0 +1,15 @@
+version: 2
+python:
+  install:
+    - method: pip
+      path: .
+build:
+  os: "ubuntu-20.04"
+  tools:
+    python: "3.8"
+  jobs:
+    pre_build:
+      - pip install sphinx sphinx-book-theme
+      - ./readthedocs.sh
+      - mv docs docs_
+      - mv docs-generator/_build docs
