@@ -7,8 +7,8 @@ negative class examples. The output of the program is a word file, a label file 
 
 """
 import argparse
-import collections
 import sys
+from collections.abc import Callable
 from typing import Pattern
 
 import neurox.data.loader as data_loader
@@ -17,7 +17,7 @@ import numpy as np
 
 
 def _create_binary_data(tokens, activations, binary_filter, balance_data=False):
-    """
+    r"""
     Given a list of tokens, their activations and a binary_filter, create the binary labeled data. A binary filter can be
     a set, regex or a function. The regex option expects output of re.compile.
 
@@ -47,7 +47,7 @@ def _create_binary_data(tokens, activations, binary_filter, balance_data=False):
         filter_fn = lambda x: x in binary_filter
     elif isinstance(binary_filter, Pattern):
         filter_fn = lambda x: binary_filter.match(x)
-    elif isinstance(binary_filter, collections.Callable):
+    elif isinstance(binary_filter, Callable):
         filter_fn = binary_filter
     else:
         raise NotImplementedError("ERROR: does not belong to any configuration")
@@ -110,7 +110,7 @@ def annotate_data(
     decompose_layers=False,
     filter_layers=None,
 ):
-    """
+    r"""
     Given a set of sentences, per word activations, a binary_filter and output_prefix, creates binary data and save it to the disk.
     A binary filter can be a set of words, a regex object or a function
 
