@@ -42,7 +42,6 @@ class GaussianProbe:
         self.categorical_sets["train"] = self.train_categorical
 
     def _get_categorical(self, set_name):
-
         counts = torch.histc(self.label_sets[set_name].float(), bins=self.labels_dim)
         categorical = (counts / self.label_sets[set_name].size()[0]).to(self.device)
         return categorical

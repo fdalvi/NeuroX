@@ -6,6 +6,7 @@ import seaborn as sns
 sns.set(style="darkgrid")
 sns.set_palette("tab10")
 
+
 ### Plotting
 def plot_accuracies_per_tag(title, **kwargs):
     if kwargs is None:

@@ -12,7 +12,6 @@ import numpy as np
 
 
 def _get_mean_vectors(X_train, y_train):
-
     embeddings_by_labels = {}
     average_embeddings_by_label = {}
     rankings_per_label = {}
@@ -35,7 +34,6 @@ def _get_mean_vectors(X_train, y_train):
 
 
 def _get_overall_ranking(mean_vectors):
-
     overall = np.zeros_like(mean_vectors[0])
 
     for couple in itertools.combinations(mean_vectors, 2):
@@ -46,12 +44,10 @@ def _get_overall_ranking(mean_vectors):
 
 
 def _get_tag_wise_ranking(mean_vectors_by_label, tag):
-
     qz = mean_vectors_by_label[tag]
     summation = np.abs(np.subtract(qz, qz))
 
     for c, qzz in mean_vectors_by_label.items():
-
         if tag != c:
             summation = np.add(summation, np.abs(np.subtract(qz, qzz)))
 
@@ -147,7 +143,6 @@ def get_neuron_ordering_for_all_tags(X_train, y_train, idx2label):
     overall = np.zeros_like(X_train[0])
 
     for c, qz in average_embeddings_by_label.items():
-
         summation, ranking = _get_tag_wise_ranking(average_embeddings_by_label, c)
         overall = np.add(overall, summation)
         ranking_per_tag[idx2label[c]] = ranking
