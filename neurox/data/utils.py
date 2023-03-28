@@ -50,7 +50,6 @@ def save_files(
     decompose_layers=False,
     filter_layers=None,
 ):
-
     """
     Save word and label files in the text format and activations in the specified format (default hdf5 format)
 
