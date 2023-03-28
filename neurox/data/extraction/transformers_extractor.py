@@ -138,11 +138,18 @@ def extract_sentence_representations(
     special_tokens_ids = tokenizer.convert_tokens_to_ids(special_tokens)
 
     original_tokens = sentence.split(" ")
-    # Add a letter and space before each word since some tokenizers are space sensitive
-    tmp_tokens = [
-        "a" + " " + x if x_idx != 0 else x for x_idx, x in enumerate(original_tokens)
-    ]
-    assert len(original_tokens) == len(tmp_tokens)
+
+    # Add letters and spaces around each word since some tokenizers are context sensitive
+    tmp_tokens = []
+    if len(original_tokens) > 0:
+        tmp_tokens.append(f"{original_tokens[0]} a")
+    tmp_tokens += [f"a {x} a" for x in original_tokens[1:-1]]
+    if len(original_tokens) > 1:
+        tmp_tokens.append(f"a {original_tokens[-1]}")
+
+    assert len(original_tokens) == len(
+        tmp_tokens
+    ), f"Original: {original_tokens}, Temp: {tmp_tokens}"
 
     with torch.no_grad():
         # Get tokenization counts if not already available
@@ -150,8 +157,15 @@ def extract_sentence_representations(
             tok_ids = [
                 x for x in tokenizer.encode(token) if x not in special_tokens_ids
             ]
-            if token_idx != 0:
-                # Ignore the first token (added letter)
+            # Ignore the added letter tokens
+            if token_idx != 0 and token_idx != len(tmp_tokens) - 1:
+                # Word appearing in the middle of the sentence
+                tok_ids = tok_ids[1:-1]
+            elif token_idx == 0:
+                # Word appearing at the beginning
+                tok_ids = tok_ids[:-1]
+            else:
+                # Word appearing at the end
                 tok_ids = tok_ids[1:]
 
             if token in tokenization_counts:

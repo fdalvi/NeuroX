@@ -165,6 +165,29 @@ class TestExtraction(unittest.TestCase):
                     "FINAL_100",
                 ],
             ),
+            (
+                "Varying tokenization for same token",
+                [
+                    "VARYING_1",
+                    "ANOTHER_1",
+                    "VARYING_1",
+                    "ANOTHER_1",
+                    "TOKEN_4",
+                    "VARYING_1",
+                ],
+            ),
+            (
+                "Varying tokenization for same token with unknown tokens",
+                [
+                    "VARYING_1",
+                    "ANOTHER_1",
+                    "VARYING_1",
+                    "TOKEN_0",
+                    "TOKEN_4",
+                    "STOKEN_0",
+                    "VARYING_1",
+                ],
+            ),
         ]
         cls.tests_data = []
 
@@ -180,11 +203,25 @@ class TestExtraction(unittest.TestCase):
         }
         tokenization_mapping["a"] = len(tokenization_mapping)
 
-        def word_to_subwords(word):
+        def word_to_subwords(word, position=None):
             if "_" not in word:
                 return [word]
             actual_word, occurrence = word.split("_")
-            occurrence = int(occurrence)
+            if position is not None and actual_word == "VARYING":
+                if position == "start":
+                    actual_word = "VARYINGSTART"
+                    occurrence = (
+                        5  # broken into 5 subwords if word occurs at the beginning
+                    )
+                elif position == "end":
+                    actual_word = "VARYINGEND"
+                    occurrence = 3  # broken into 3 subwords if word occurs at the end
+                elif position == "middle":
+                    occurrence = (
+                        4  # broken into 4 subwords if word occurs at the middle
+                    )
+            else:
+                occurrence = int(occurrence)
             if occurrence == 0:
                 return [tokenizer_mock.unk_token]
             elif occurrence < 0:
@@ -199,8 +236,14 @@ class TestExtraction(unittest.TestCase):
                 return subwords
 
         for _, sentence in sentences:
-            for word in sentence:
-                for subword in word_to_subwords(word):
+            for word_idx, word in enumerate(sentence):
+                if word_idx == 0:
+                    position = "start"
+                elif word_idx == len(sentence) - 1:
+                    position = "end"
+                else:
+                    position = "middle"
+                for subword in word_to_subwords(word, position):
                     if subword not in tokenization_mapping:
                         tokenization_mapping[subword] = len(tokenization_mapping)
 
@@ -226,8 +269,15 @@ class TestExtraction(unittest.TestCase):
 
         def encode_side_effect(arg, **kwargs):
             tokenized_sentence = ["[CLS]"]
-            for w in arg.split(" "):
-                tokenized_sentence.extend(word_to_subwords(w))
+            words = arg.split(" ")
+            for w_idx, w in enumerate(words):
+                if w_idx == 0:
+                    position = "start"
+                elif w_idx == len(words) - 1:
+                    position = "end"
+                else:
+                    position = "middle"
+                tokenized_sentence.extend(word_to_subwords(w, position))
             tokenized_sentence.append("[SEP]")
 
             return tokenization_side_effect(tokenized_sentence)
@@ -250,9 +300,15 @@ class TestExtraction(unittest.TestCase):
 
             counter += 1
 
-            for w in sentence:
+            for w_idx, w in enumerate(sentence):
                 idx.append(counter)
-                subwords = word_to_subwords(w)
+                if w_idx == 0:
+                    position = "start"
+                elif w_idx == len(sentence) - 1:
+                    position = "end"
+                else:
+                    position = "middle"
+                subwords = word_to_subwords(w, position)
                 counter += len(subwords)
                 tokenized_sentence.extend(subwords)
 
@@ -697,6 +753,40 @@ class TestExtraction(unittest.TestCase):
         )
 
         self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(
+                hidden_states[l, :, :], expected_output[l][:, :].numpy()
+            )
+
+    def test_extract_sentence_representations_varying_tokenization(self):
+        "Same token with different in-context tokenizations"
+        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[18]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        (
+            hidden_states,
+            extracted_words,
+        ) = transformers_extractor.extract_sentence_representations(
+            " ".join(sentence), self.model, self.tokenizer
+        )
+
+        for l in range(1, self.num_layers):
+            np.testing.assert_array_almost_equal(
+                hidden_states[l, :, :], expected_output[l][:, :].numpy()
+            )
+
+    def test_extract_sentence_representations_varying_tokenization_with_unk(self):
+        "Same token with different in-context tokenizations with unknown tokens"
+        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[19]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        (
+            hidden_states,
+            extracted_words,
+        ) = transformers_extractor.extract_sentence_representations(
+            " ".join(sentence), self.model, self.tokenizer
+        )
 
         for l in range(1, self.num_layers):
             np.testing.assert_array_almost_equal(
