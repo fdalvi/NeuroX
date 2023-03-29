@@ -116,17 +116,17 @@ class TestExtraction(unittest.TestCase):
                 ["TOKEN_2", "TOKEN_2", "TOKEN_0"],
             ),
             ("All unknown tokens", ["SOMETHING_0", "SOMETHING2_0", "SOMETHING3_0"]),
-            ("Special token that is dropped by tokenizer", ["DISAPPEAR_-1"]),
+            ("Token that is dropped by tokenizer", ["DISAPPEAR_-1"]),
             (
-                "Special token in the beginning that is dropped by tokenizer in context",
+                "Token in the beginning that is dropped by tokenizer in context",
                 ["DISAPPEAR_-1", "SOMETHING_2"],
             ),
             (
-                "Special token in the middle that is dropped by tokenizer in context",
+                "Token in the middle that is dropped by tokenizer in context",
                 ["SOMETHING_2", "DISAPPEAR_-1", "ANOTHER_4"],
             ),
             (
-                "Special token in the end that is dropped by tokenizer in context",
+                "Token in the end that is dropped by tokenizer in context",
                 ["SOMETHING_3", "DISAPPEAR_-1"],
             ),
             (
@@ -401,7 +401,7 @@ class TestExtraction(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def run_test(self, testcase, **kwargs):
+    def run_test(self, testcase, dropped_tokens=0, **kwargs):
         (
             _,
             sentence,
@@ -428,6 +428,8 @@ class TestExtraction(unittest.TestCase):
 
             # Account for [CLS] and [SEP]
             extra_tokens = 2
+
+        extra_tokens -= dropped_tokens
         self.model.return_value = ("placeholder", model_mock_output)
 
         words = sentence
@@ -437,8 +439,9 @@ class TestExtraction(unittest.TestCase):
         ) = transformers_extractor.extract_sentence_representations(
             " ".join(words), self.model, self.tokenizer, **kwargs
         )
-        self.assertEqual(len(extracted_words), len(words) + extra_tokens)
-        self.assertEqual(hidden_states.shape[1], len(words) + extra_tokens)
+        expected_length = min(512, len(words) + extra_tokens)
+        self.assertEqual(len(extracted_words), expected_length)
+        self.assertEqual(hidden_states.shape[1], expected_length)
 
         # Test output from all layers
         for l in range(self.num_layers):
@@ -477,28 +480,28 @@ class TestExtraction(unittest.TestCase):
         "First aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="first")
 
-    def test_extract_sentence_representations_first_aggregation_special_dropped_token(
+    def test_extract_sentence_representations_first_aggregation_dropped_token(
         self,
     ):
-        "First aggregation: Special token that is dropped by tokenizer"
+        "First aggregation: Token that is dropped by tokenizer"
         self.run_test(self.tests_data[8], aggregation="first")
 
-    def test_extract_sentence_representations_first_aggregation_special_dropped_token_beginning(
+    def test_extract_sentence_representations_first_aggregation_dropped_token_beginning(
         self,
     ):
-        "First aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        "First aggregation: Token in the beginning that is dropped by tokenizer in context"
         self.run_test(self.tests_data[9], aggregation="first")
 
-    def test_extract_sentence_representations_first_aggregation_special_dropped_token_middle(
+    def test_extract_sentence_representations_first_aggregation_dropped_token_middle(
         self,
     ):
-        "First aggregation: Special token in the middle that is dropped by tokenizer in context"
+        "First aggregation: Token in the middle that is dropped by tokenizer in context"
         self.run_test(self.tests_data[10], aggregation="first")
 
-    def test_extract_sentence_representations_first_aggregation_special_dropped_token_end(
+    def test_extract_sentence_representations_first_aggregation_dropped_token_end(
         self,
     ):
-        "First aggregation: Special token in the end that is dropped by tokenizer in context"
+        "First aggregation: Token in the end that is dropped by tokenizer in context"
         self.run_test(self.tests_data[11], aggregation="first")
 
     ############################ Last tests ############################
@@ -532,28 +535,28 @@ class TestExtraction(unittest.TestCase):
         "Last aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="last")
 
-    def test_extract_sentence_representations_last_aggregation_special_dropped_token(
+    def test_extract_sentence_representations_last_aggregation_dropped_token(
         self,
     ):
-        "Last aggregation: Special token that is dropped by tokenizer"
+        "Last aggregation: Token that is dropped by tokenizer"
         self.run_test(self.tests_data[8], aggregation="last")
 
-    def test_extract_sentence_representations_last_aggregation_special_dropped_token_beginning(
+    def test_extract_sentence_representations_last_aggregation_dropped_token_beginning(
         self,
     ):
-        "Last aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        "Last aggregation: Token in the beginning that is dropped by tokenizer in context"
         self.run_test(self.tests_data[9], aggregation="last")
 
-    def test_extract_sentence_representations_last_aggregation_special_dropped_token_middle(
+    def test_extract_sentence_representations_last_aggregation_dropped_token_middle(
         self,
     ):
-        "Last aggregation: Special token in the middle that is dropped by tokenizer in context"
+        "Last aggregation: Token in the middle that is dropped by tokenizer in context"
         self.run_test(self.tests_data[10], aggregation="last")
 
-    def test_extract_sentence_representations_last_aggregation_special_dropped_token_end(
+    def test_extract_sentence_representations_last_aggregation_dropped_token_end(
         self,
     ):
-        "Last aggregation: Special token in the end that is dropped by tokenizer in context"
+        "Last aggregation: Token in the end that is dropped by tokenizer in context"
         self.run_test(self.tests_data[11], aggregation="last")
 
     ########################## Average tests ###########################
@@ -593,28 +596,28 @@ class TestExtraction(unittest.TestCase):
         "Average aggregation: All unknown tokens"
         self.run_test(self.tests_data[7], aggregation="average")
 
-    def test_extract_sentence_representations_average_aggregation_special_dropped_token(
+    def test_extract_sentence_representations_average_aggregation_dropped_token(
         self,
     ):
-        "Average aggregation: Special token that is dropped by tokenizer"
+        "Average aggregation: Token that is dropped by tokenizer"
         self.run_test(self.tests_data[8], aggregation="average")
 
-    def test_extract_sentence_representations_average_aggregation_special_dropped_token_beginning(
+    def test_extract_sentence_representations_average_aggregation_dropped_token_beginning(
         self,
     ):
-        "Average aggregation: Special token in the beginning that is dropped by tokenizer in context"
+        "Average aggregation: Token in the beginning that is dropped by tokenizer in context"
         self.run_test(self.tests_data[9], aggregation="average")
 
-    def test_extract_sentence_representations_average_aggregation_special_dropped_token_middle(
+    def test_extract_sentence_representations_average_aggregation_dropped_token_middle(
         self,
     ):
-        "Average aggregation: Special token in the middle that is dropped by tokenizer in context"
+        "Average aggregation: Token in the middle that is dropped by tokenizer in context"
         self.run_test(self.tests_data[10], aggregation="average")
 
-    def test_extract_sentence_representations_average_aggregation_special_dropped_token_end(
+    def test_extract_sentence_representations_average_aggregation_dropped_token_end(
         self,
     ):
-        "Average aggregation: Special token in the end that is dropped by tokenizer in context"
+        "Average aggregation: Token in the end that is dropped by tokenizer in context"
         self.run_test(self.tests_data[11], aggregation="average")
 
     ############################# Embedding tests ##############################
@@ -656,132 +659,48 @@ class TestExtraction(unittest.TestCase):
                 hidden_states[l - 1, :, :], expected_output[l][:, :].numpy()
             )
 
+    ############################ Long Input tests #############################
     @patch("sys.stdout", new_callable=StringIO)
     def test_extract_sentence_representations_long_input(self, mock_stdout):
         "Input longer than tokenizer's limit"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[12]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
+        self.run_test(self.tests_data[12], dropped_tokens=1, aggregation="average")
         self.assertIn("Input truncated because of length", mock_stdout.getvalue())
-
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
 
     def test_extract_sentence_representations_long_input_exact_length(self):
         "Input exactly equal to tokenizer's limit"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[13]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
-        # self.assertIn("Input truncated because of length", mock_stdout.getvalue())
-
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
+        self.run_test(self.tests_data[13], aggregation="average")
 
     @patch("sys.stdout", new_callable=StringIO)
     def test_extract_sentence_representations_long_input_tokenization_break(
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with break in the middle of tokenization"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[14]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
+        self.run_test(self.tests_data[14], dropped_tokens=1, aggregation="average")
         self.assertIn("Input truncated because of length", mock_stdout.getvalue())
-
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
 
     def test_extract_sentence_representations_long_input_exact_length_dropped_token(
         self,
     ):
         "Input exactly equal to tokenizer's limit with dropped token"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[15]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
-        # self.assertIn("Input truncated because of length", mock_stdout.getvalue())
-
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
+        self.run_test(self.tests_data[15], aggregation="average")
 
     @patch("sys.stdout", new_callable=StringIO)
     def test_extract_sentence_representations_long_input_dropped_token_break(
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with break at dropped token"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[16]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
+        self.run_test(self.tests_data[16], dropped_tokens=1, aggregation="average")
         self.assertIn("Input truncated because of length", mock_stdout.getvalue())
-
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
 
     @patch("sys.stdout", new_callable=StringIO)
     def test_extract_sentence_representations_long_input_dropped_token(
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with dropped token"
-        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[17]
-        self.model.return_value = ("placeholder", model_mock_output)
-
-        (
-            hidden_states,
-            extracted_words,
-        ) = transformers_extractor.extract_sentence_representations(
-            " ".join(sentence), self.model, self.tokenizer
-        )
-
+        self.run_test(self.tests_data[17], dropped_tokens=1, aggregation="average")
         self.assertIn("Input truncated because of length", mock_stdout.getvalue())
 
-        for l in range(1, self.num_layers):
-            np.testing.assert_array_almost_equal(
-                hidden_states[l, :, :], expected_output[l][:, :].numpy()
-            )
-
+    ####################### Varying tokenization tests ########################
     def test_extract_sentence_representations_varying_tokenization(self):
         "Same token with different in-context tokenizations"
         _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[18]
@@ -864,7 +783,7 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_special_tokens_dropped_token(
         self,
     ):
-        "Special Tokens Extraction: Special token that is dropped by tokenizer"
+        "Special Tokens Extraction: Dropped token between two special tokens"
         _, sentence, model_mock_output, _, _, _, expected_output = self.tests_data[8]
         self.model.return_value = ("placeholder", model_mock_output)
 
@@ -904,7 +823,7 @@ class TestExtraction(unittest.TestCase):
     def test_extract_sentence_representations_special_tokens_dropped_token_middle(
         self,
     ):
-        "Special Tokens Extraction: Special token in the middle that is dropped by tokenizer in context"
+        "Special Tokens Extraction: Token in the middle that is dropped by tokenizer in context"
         self.run_test(
             self.tests_data[10], aggregation="last", include_special_tokens=True
         )
