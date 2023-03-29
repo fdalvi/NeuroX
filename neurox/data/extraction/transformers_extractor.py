@@ -126,6 +126,7 @@ def extract_sentence_representations(
     aggregation="last",
     tokenization_counts={},
     dtype="float32",
+    include_special_tokens=False,
 ):
     """
     Get representations for one sentence
@@ -201,14 +202,26 @@ def extract_sentence_representations(
         )
     )
 
-    # Remove special tokens
-    ids_without_special_tokens = [x for x in ids if x not in special_tokens_ids]
-    idx_without_special_tokens = [
-        t_i for t_i, x in enumerate(ids) if x not in special_tokens_ids
-    ]
-    filtered_ids = [ids[t_i] for t_i in idx_without_special_tokens]
     assert all_hidden_states.shape[1] == len(ids)
-    all_hidden_states = all_hidden_states[:, idx_without_special_tokens, :]
+
+    # Handle special tokens
+    # filtered_ids will contain all ids if we are extracting with
+    #  special tokens, and only normal word/subword ids if we are
+    #  extracting without special tokens
+    # all_hidden_states will also be filtered at this step to match
+    #  the ids in filtered ids
+    filtered_ids = ids
+    idx_special_tokens = [t_i for t_i, x in enumerate(ids) if x in special_tokens_ids]
+    special_token_ids = [ids[t_i] for t_i in idx_special_tokens]
+
+    if not include_special_tokens:
+        idx_without_special_tokens = [
+            t_i for t_i, x in enumerate(ids) if x not in special_tokens_ids
+        ]
+        filtered_ids = [ids[t_i] for t_i in idx_without_special_tokens]
+        all_hidden_states = all_hidden_states[:, idx_without_special_tokens, :]
+        special_token_ids = []
+
     assert all_hidden_states.shape[1] == len(filtered_ids)
     print(
         "Filtered   (%03d): %s"
@@ -217,18 +230,49 @@ def extract_sentence_representations(
             tokenizer.convert_ids_to_tokens(filtered_ids),
         )
     )
+
+    # Get actual tokens for filtered ids in order to do subword
+    #  aggregation
     segmented_tokens = tokenizer.convert_ids_to_tokens(filtered_ids)
 
-    # Perform actual subword aggregation/detokenization
+    # Perform subword aggregation/detokenization
+    #  After aggregation, we should have |original_tokens| embeddings,
+    #  one for each word. If special tokens are included, then we will
+    #  have |original_tokens| + |special_tokens|
     counter = 0
     detokenized = []
     final_hidden_states = np.zeros(
-        (all_hidden_states.shape[0], len(original_tokens), all_hidden_states.shape[2]),
+        (
+            all_hidden_states.shape[0],
+            len(original_tokens) + len(special_token_ids),
+            all_hidden_states.shape[2],
+        ),
         dtype=dtype,
     )
     inputs_truncated = False
 
+    if include_special_tokens:
+        last_special_token_pointer = 0
     for token_idx, token in enumerate(tmp_tokens):
+        # Handle special tokens
+        if include_special_tokens and tokenization_counts[token] != 0:
+            if last_special_token_pointer < len(idx_special_tokens):
+                while (
+                    last_special_token_pointer < len(idx_special_tokens)
+                    and counter == idx_special_tokens[last_special_token_pointer]
+                ):
+                    print(
+                        f"Found {segmented_tokens[idx_special_tokens[last_special_token_pointer]]}"
+                    )
+                    final_hidden_states[:, len(detokenized), :] = all_hidden_states[
+                        :, counter, :
+                    ]
+                    detokenized.append(
+                        segmented_tokens[idx_special_tokens[last_special_token_pointer]]
+                    )
+                    last_special_token_pointer += 1
+                    counter += 1
+
         current_word_start_idx = counter
         current_word_end_idx = counter + tokenization_counts[token]
 
@@ -253,14 +297,32 @@ def extract_sentence_representations(
         )
         counter += tokenization_counts[token]
 
+    if include_special_tokens:
+        while counter < len(segmented_tokens):
+            if last_special_token_pointer >= len(idx_special_tokens):
+                break
+
+            if counter == idx_special_tokens[last_special_token_pointer]:
+                print(
+                    f"Found {segmented_tokens[idx_special_tokens[last_special_token_pointer]]}"
+                )
+                final_hidden_states[:, len(detokenized), :] = all_hidden_states[
+                    :, counter, :
+                ]
+                detokenized.append(
+                    segmented_tokens[idx_special_tokens[last_special_token_pointer]]
+                )
+                last_special_token_pointer += 1
+                counter += 1
+
     print("Detokenized (%03d): %s" % (len(detokenized), detokenized))
     print("Counter: %d" % (counter))
 
     if inputs_truncated:
         print("WARNING: Input truncated because of length, skipping check")
     else:
-        assert counter == len(ids_without_special_tokens)
-        assert len(detokenized) == len(original_tokens)
+        assert counter == len(filtered_ids)
+        assert len(detokenized) == len(original_tokens) + len(special_token_ids)
     print("===================================================================")
     return final_hidden_states, detokenized
 

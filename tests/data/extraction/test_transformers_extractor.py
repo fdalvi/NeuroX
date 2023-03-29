@@ -291,12 +291,14 @@ class TestExtraction(unittest.TestCase):
             first_expected_output = {k: [] for k in range(cls.num_layers)}
             last_expected_output = {k: [] for k in range(cls.num_layers)}
             average_expected_output = {k: [] for k in range(cls.num_layers)}
+            special_tokens_expected_output = {k: [] for k in range(cls.num_layers)}
 
             idx = [counter]
             tokenized_sentence = ["[CLS]"]
             for k in model_mock_output:
                 tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
+                special_tokens_expected_output[k].append(tmp.squeeze())
 
             counter += 1
 
@@ -336,6 +338,7 @@ class TestExtraction(unittest.TestCase):
                     first_expected_output[k].append(tmp[0, :])  # Pick first subword idx
                     last_expected_output[k].append(tmp[-1, :])  # Pick last subword idx
                     average_expected_output[k].append(tmp.mean(axis=0))
+                    special_tokens_expected_output[k].append(tmp[-1, :])
 
                 # Check if input is too long already (and account
                 # for [SEP] token)
@@ -347,6 +350,7 @@ class TestExtraction(unittest.TestCase):
             for k in model_mock_output:
                 tmp = torch.rand((1, cls.num_neurons_per_layer))
                 model_mock_output[k].append(tmp)
+                special_tokens_expected_output[k].append(tmp.squeeze())
 
             counter += 1
 
@@ -365,6 +369,12 @@ class TestExtraction(unittest.TestCase):
             average_expected_output = tuple(
                 [torch.stack(average_expected_output[k]) for k in range(cls.num_layers)]
             )
+            special_tokens_expected_output = tuple(
+                [
+                    torch.stack(special_tokens_expected_output[k])
+                    for k in range(cls.num_layers)
+                ]
+            )
 
             cls.tests_data.append(
                 (
@@ -374,6 +384,7 @@ class TestExtraction(unittest.TestCase):
                     first_expected_output,
                     last_expected_output,
                     average_expected_output,
+                    special_tokens_expected_output,
                 )
             )
 
@@ -398,13 +409,25 @@ class TestExtraction(unittest.TestCase):
             first_expected_output,
             last_expected_output,
             average_expected_output,
+            special_tokens_expected_output,
         ) = testcase
         if kwargs["aggregation"] == "first":
             expected_output = first_expected_output
+            extra_tokens = 0
         if kwargs["aggregation"] == "last":
             expected_output = last_expected_output
+            extra_tokens = 0
         if kwargs["aggregation"] == "average":
             expected_output = average_expected_output
+            extra_tokens = 0
+        if (
+            "include_special_tokens" in kwargs
+            and kwargs["include_special_tokens"] == True
+        ):
+            expected_output = special_tokens_expected_output
+
+            # Account for [CLS] and [SEP]
+            extra_tokens = 2
         self.model.return_value = ("placeholder", model_mock_output)
 
         words = sentence
@@ -414,8 +437,8 @@ class TestExtraction(unittest.TestCase):
         ) = transformers_extractor.extract_sentence_representations(
             " ".join(words), self.model, self.tokenizer, **kwargs
         )
-        self.assertEqual(len(extracted_words), len(words))
-        self.assertEqual(hidden_states.shape[1], len(words))
+        self.assertEqual(len(extracted_words), len(words) + extra_tokens)
+        self.assertEqual(hidden_states.shape[1], len(words) + extra_tokens)
 
         # Test output from all layers
         for l in range(self.num_layers):
@@ -597,7 +620,7 @@ class TestExtraction(unittest.TestCase):
     ############################# Embedding tests ##############################
     def test_extract_sentence_representations_include_embeddings(self):
         "Extraction with embedding layer"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[1]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[1]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -616,7 +639,7 @@ class TestExtraction(unittest.TestCase):
 
     def test_extract_sentence_representations_exclude_embeddings(self):
         "Extraction without embedding layer"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[1]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[1]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -636,7 +659,7 @@ class TestExtraction(unittest.TestCase):
     @patch("sys.stdout", new_callable=StringIO)
     def test_extract_sentence_representations_long_input(self, mock_stdout):
         "Input longer than tokenizer's limit"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[12]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[12]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -655,7 +678,7 @@ class TestExtraction(unittest.TestCase):
 
     def test_extract_sentence_representations_long_input_exact_length(self):
         "Input exactly equal to tokenizer's limit"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[13]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[13]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -677,7 +700,7 @@ class TestExtraction(unittest.TestCase):
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with break in the middle of tokenization"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[14]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[14]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -698,7 +721,7 @@ class TestExtraction(unittest.TestCase):
         self,
     ):
         "Input exactly equal to tokenizer's limit with dropped token"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[15]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[15]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -720,7 +743,7 @@ class TestExtraction(unittest.TestCase):
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with break at dropped token"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[16]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[16]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -742,7 +765,7 @@ class TestExtraction(unittest.TestCase):
         self, mock_stdout
     ):
         "Input longer than tokenizer's limit with dropped token"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[17]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[17]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -761,7 +784,7 @@ class TestExtraction(unittest.TestCase):
 
     def test_extract_sentence_representations_varying_tokenization(self):
         "Same token with different in-context tokenizations"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[18]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[18]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -778,7 +801,7 @@ class TestExtraction(unittest.TestCase):
 
     def test_extract_sentence_representations_varying_tokenization_with_unk(self):
         "Same token with different in-context tokenizations with unknown tokens"
-        _, sentence, model_mock_output, _, expected_output, _ = self.tests_data[19]
+        _, sentence, model_mock_output, _, expected_output, _, _ = self.tests_data[19]
         self.model.return_value = ("placeholder", model_mock_output)
 
         (
@@ -792,6 +815,83 @@ class TestExtraction(unittest.TestCase):
             np.testing.assert_array_almost_equal(
                 hidden_states[l, :, :], expected_output[l][:, :].numpy()
             )
+
+    ############################# Special Tokens ##############################
+    def test_extract_sentence_representations_special_tokens_multiple_token(self):
+        "Special Tokens Extraction: Multi token sentence without any subwords"
+        self.run_test(
+            self.tests_data[1], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_subword_begin(self):
+        "Special Tokens Extraction: Subword token in the beginning"
+        self.run_test(
+            self.tests_data[2], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_subword_middle(self):
+        "Special Tokens Extraction: Subword token in the middle"
+        self.run_test(
+            self.tests_data[3], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_subword_end(self):
+        "Special Tokens Extraction: Subword token in the end"
+        self.run_test(
+            self.tests_data[4], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_mutliple_subwords(self):
+        "Special Tokens Extraction: Multiple subword tokens"
+        self.run_test(
+            self.tests_data[5], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_mutliple_subwords_with_unk(
+        self,
+    ):
+        "Special Tokens Extraction: Multiple subword tokens with unknown token"
+        self.run_test(
+            self.tests_data[6], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_all_unk(self):
+        "Special Tokens Extraction: All unknown tokens"
+        self.run_test(
+            self.tests_data[7], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_special_dropped_token(
+        self,
+    ):
+        "Special Tokens Extraction: Special token that is dropped by tokenizer"
+        self.run_test(
+            self.tests_data[8], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_special_dropped_token_beginning(
+        self,
+    ):
+        "Special Tokens Extraction: Special token in the beginning that is dropped by tokenizer in context"
+        self.run_test(
+            self.tests_data[9], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_special_dropped_token_middle(
+        self,
+    ):
+        "Special Tokens Extraction: Special token in the middle that is dropped by tokenizer in context"
+        self.run_test(
+            self.tests_data[10], aggregation="last", include_special_tokens=True
+        )
+
+    def test_extract_sentence_representations_special_tokens_special_dropped_token_end(
+        self,
+    ):
+        "Special Tokens Extraction: Special token in the end that is dropped by tokenizer in context"
+        self.run_test(
+            self.tests_data[11], aggregation="last", include_special_tokens=True
+        )
 
 
 class TestModelAndTokenizerGetter(unittest.TestCase):
