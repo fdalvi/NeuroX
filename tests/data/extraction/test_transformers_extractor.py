@@ -278,6 +278,11 @@ class TestExtraction(unittest.TestCase):
                 else:
                     position = "middle"
                 tokenized_sentence.extend(word_to_subwords(w, position))
+            if (
+                kwargs.get("truncation", False)
+                and len(tokenized_sentence) >= tokenizer_mock.model_max_length
+            ):
+                tokenized_sentence = tokenized_sentence[:511]
             tokenized_sentence.append("[SEP]")
 
             return tokenization_side_effect(tokenized_sentence)
@@ -847,6 +852,82 @@ class TestExtraction(unittest.TestCase):
             "token dropped by the tokenizer appeared next",
             error_context.exception.args[0],
         )
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_extract_sentence_representations_special_tokens_long_input(
+        self, mock_stdout
+    ):
+        "Special Tokens Extraction: Input longer than tokenizer's limit"
+        self.run_test(
+            self.tests_data[12],
+            dropped_tokens=1,
+            aggregation="last",
+            include_special_tokens=True,
+        )
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+    def test_extract_sentence_representations_special_tokens_long_input_exact_length(
+        self,
+    ):
+        "Special Tokens Extraction: Input exactly equal to tokenizer's limit"
+        self.run_test(
+            self.tests_data[13], aggregation="last", include_special_tokens=True
+        )
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_extract_sentence_representations_special_tokens_long_input_tokenization_break(
+        self, mock_stdout
+    ):
+        "Special Tokens Extraction: Input longer than tokenizer's limit with break in the middle of tokenization"
+        self.run_test(
+            self.tests_data[14],
+            dropped_tokens=1,
+            aggregation="last",
+            include_special_tokens=True,
+        )
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
+
+    def test_extract_sentence_representations_special_tokens_long_input_exact_length_dropped_token(
+        self,
+    ):
+        "Special Tokens Extraction: Input exactly equal to tokenizer's limit with dropped token"
+        with self.assertRaises(Exception) as error_context:
+            self.run_test(
+                self.tests_data[15], aggregation="last", include_special_tokens=True
+            )
+        self.assertIn(
+            "token dropped by the tokenizer appeared next",
+            error_context.exception.args[0],
+        )
+
+    def test_extract_sentence_representations_special_tokens_long_input_dropped_token_break(
+        self,
+    ):
+        "Special Tokens Extraction: Input longer than tokenizer's limit with break at dropped token"
+        with self.assertRaises(Exception) as error_context:
+            self.run_test(
+                self.tests_data[16],
+                dropped_tokens=1,
+                aggregation="last",
+                include_special_tokens=True,
+            )
+        self.assertIn(
+            "token dropped by the tokenizer appeared next",
+            error_context.exception.args[0],
+        )
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_extract_sentence_representations_special_tokens_long_input_dropped_token(
+        self, mock_stdout
+    ):
+        "Special Tokens Extraction: Input longer than tokenizer's limit with dropped token"
+        self.run_test(
+            self.tests_data[17],
+            dropped_tokens=1,
+            aggregation="last",
+            include_special_tokens=True,
+        )
+        self.assertIn("Input truncated because of length", mock_stdout.getvalue())
 
 
 class TestModelAndTokenizerGetter(unittest.TestCase):

@@ -257,8 +257,7 @@ def extract_sentence_representations(
     #  ambiguous situation for the detokenizer
     prev_token_type = "NONE"
 
-    if include_special_tokens:
-        last_special_token_pointer = 0
+    last_special_token_pointer = 0
     for token_idx, token in enumerate(tmp_tokens):
         # Handle special tokens
         if include_special_tokens and tokenization_counts[token] != 0:
@@ -292,7 +291,13 @@ def extract_sentence_representations(
             tokenization_counts[token] != 0
             and current_word_start_idx >= all_hidden_states.shape[1]
         ) or current_word_end_idx > all_hidden_states.shape[1]:
-            final_hidden_states = final_hidden_states[:, : len(detokenized), :]
+            final_hidden_states = final_hidden_states[
+                :,
+                : len(detokenized)
+                + len(special_token_ids)
+                - last_special_token_pointer,
+                :,
+            ]
             inputs_truncated = True
             break
 
@@ -338,7 +343,7 @@ def extract_sentence_representations(
                     segmented_tokens[idx_special_tokens[last_special_token_pointer]]
                 )
                 last_special_token_pointer += 1
-                counter += 1
+            counter += 1
 
     print("Detokenized (%03d): %s" % (len(detokenized), detokenized))
     print("Counter: %d" % (counter))
