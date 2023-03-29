@@ -130,6 +130,7 @@ def extract_sentence_representations(
 ):
     """
     Get representations for one sentence
+    TODO: Update doc
     """
     # this follows the HuggingFace API for transformers
 
@@ -251,6 +252,11 @@ def extract_sentence_representations(
     )
     inputs_truncated = False
 
+    # Keep track of what the previous token was. This is used to detect
+    #  special tokens followed/preceeded by dropped tokens, which is an
+    #  ambiguous situation for the detokenizer
+    prev_token_type = "NONE"
+
     if include_special_tokens:
         last_special_token_pointer = 0
     for token_idx, token in enumerate(tmp_tokens):
@@ -261,9 +267,13 @@ def extract_sentence_representations(
                     last_special_token_pointer < len(idx_special_tokens)
                     and counter == idx_special_tokens[last_special_token_pointer]
                 ):
-                    print(
-                        f"Found {segmented_tokens[idx_special_tokens[last_special_token_pointer]]}"
+                    assert prev_token_type != "DROPPED", (
+                        "A token dropped by the tokenizer appeared next "
+                        + "to a special token. Detokenizer cannot resolve "
+                        + f"the ambiguity, please remove '{sentence}' from"
+                        + "the dataset, or try a different tokenizer"
                     )
+                    prev_token_type = "SPECIAL"
                     final_hidden_states[:, len(detokenized), :] = all_hidden_states[
                         :, counter, :
                     ]
@@ -286,6 +296,17 @@ def extract_sentence_representations(
             inputs_truncated = True
             break
 
+        if tokenization_counts[token] == 0:
+            assert prev_token_type != "SPECIAL", (
+                "A token dropped by the tokenizer appeared next "
+                + "to a special token. Detokenizer cannot resolve "
+                + f"the ambiguity, please remove '{sentence}' from"
+                + "the dataset, or try a different tokenizer"
+            )
+            prev_token_type = "DROPPED"
+        else:
+            prev_token_type = "NORMAL"
+
         final_hidden_states[:, len(detokenized), :] = aggregate_repr(
             all_hidden_states,
             current_word_start_idx,
@@ -303,9 +324,13 @@ def extract_sentence_representations(
                 break
 
             if counter == idx_special_tokens[last_special_token_pointer]:
-                print(
-                    f"Found {segmented_tokens[idx_special_tokens[last_special_token_pointer]]}"
+                assert prev_token_type != "DROPPED", (
+                    "A token dropped by the tokenizer appeared next "
+                    + "to a special token. Detokenizer cannot resolve "
+                    + f"the ambiguity, please remove '{sentence}' from"
+                    + "the dataset, or try a different tokenizer"
                 )
+                prev_token_type = "SPECIAL"
                 final_hidden_states[:, len(detokenized), :] = all_hidden_states[
                     :, counter, :
                 ]
@@ -340,6 +365,9 @@ def extract_representations(
     filter_layers=None,
     dtype="float32",
 ):
+    """
+    TODO: Update doc
+    """
     print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
         model_desc, device=device, random_weights=random_weights
@@ -415,6 +443,7 @@ def main():
         action="store_true",
         help="generate representations from randomly initialized model",
     )
+    # TODO: Add command line option for special tokens
 
     ActivationsWriter.add_writer_options(parser)
 

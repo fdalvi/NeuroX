@@ -861,23 +861,47 @@ class TestExtraction(unittest.TestCase):
             self.tests_data[7], aggregation="last", include_special_tokens=True
         )
 
-    def test_extract_sentence_representations_special_tokens_special_dropped_token(
+    def test_extract_sentence_representations_special_tokens_dropped_token(
         self,
     ):
         "Special Tokens Extraction: Special token that is dropped by tokenizer"
-        self.run_test(
-            self.tests_data[8], aggregation="last", include_special_tokens=True
+        _, sentence, model_mock_output, _, _, _, expected_output = self.tests_data[8]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        with self.assertRaises(Exception) as error_context:
+            transformers_extractor.extract_sentence_representations(
+                " ".join(sentence),
+                self.model,
+                self.tokenizer,
+                include_special_tokens=True,
+            )
+
+        self.assertIn(
+            "token dropped by the tokenizer appeared next",
+            error_context.exception.args[0],
         )
 
-    def test_extract_sentence_representations_special_tokens_special_dropped_token_beginning(
+    def test_extract_sentence_representations_special_tokens_dropped_token_beginning(
         self,
     ):
-        "Special Tokens Extraction: Special token in the beginning that is dropped by tokenizer in context"
-        self.run_test(
-            self.tests_data[9], aggregation="last", include_special_tokens=True
+        "Special Tokens Extraction: Dropped token after a Special token"
+        _, sentence, model_mock_output, _, _, _, expected_output = self.tests_data[9]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        with self.assertRaises(Exception) as error_context:
+            transformers_extractor.extract_sentence_representations(
+                " ".join(sentence),
+                self.model,
+                self.tokenizer,
+                include_special_tokens=True,
+            )
+
+        self.assertIn(
+            "token dropped by the tokenizer appeared next",
+            error_context.exception.args[0],
         )
 
-    def test_extract_sentence_representations_special_tokens_special_dropped_token_middle(
+    def test_extract_sentence_representations_special_tokens_dropped_token_middle(
         self,
     ):
         "Special Tokens Extraction: Special token in the middle that is dropped by tokenizer in context"
@@ -885,12 +909,24 @@ class TestExtraction(unittest.TestCase):
             self.tests_data[10], aggregation="last", include_special_tokens=True
         )
 
-    def test_extract_sentence_representations_special_tokens_special_dropped_token_end(
+    def test_extract_sentence_representations_special_tokens_dropped_token_end(
         self,
     ):
-        "Special Tokens Extraction: Special token in the end that is dropped by tokenizer in context"
-        self.run_test(
-            self.tests_data[11], aggregation="last", include_special_tokens=True
+        "Special Tokens Extraction: Dropped token before a Special token"
+        _, sentence, model_mock_output, _, _, _, expected_output = self.tests_data[11]
+        self.model.return_value = ("placeholder", model_mock_output)
+
+        with self.assertRaises(Exception) as error_context:
+            transformers_extractor.extract_sentence_representations(
+                " ".join(sentence),
+                self.model,
+                self.tokenizer,
+                include_special_tokens=True,
+            )
+
+        self.assertIn(
+            "token dropped by the tokenizer appeared next",
+            error_context.exception.args[0],
         )
 
 
