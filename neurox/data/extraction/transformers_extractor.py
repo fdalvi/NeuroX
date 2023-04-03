@@ -369,6 +369,7 @@ def extract_representations(
     decompose_layers=False,
     filter_layers=None,
     dtype="float32",
+    include_special_tokens=False,
 ):
     """
     TODO: Update doc
@@ -407,6 +408,7 @@ def extract_representations(
             aggregation=aggregation,
             tokenization_counts=tokenization_counts,
             dtype=dtype,
+            include_special_tokens=include_special_tokens,
         )
 
         print("Hidden states: ", hidden_states.shape)
@@ -448,7 +450,11 @@ def main():
         action="store_true",
         help="generate representations from randomly initialized model",
     )
-    # TODO: Add command line option for special tokens
+    parser.add_argument(
+        "--include_special_tokens",
+        action="store_true",
+        help="Include special tokens like [CLS] and [SEP] in the extracted representations",
+    )
 
     ActivationsWriter.add_writer_options(parser)
 
@@ -481,6 +487,7 @@ def main():
         dtype=args.dtype,
         decompose_layers=args.decompose_layers,
         filter_layers=args.filter_layers,
+        include_special_tokens=args.include_special_tokens
     )
 
 
