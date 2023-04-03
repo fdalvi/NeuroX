@@ -487,7 +487,7 @@ def main():
         dtype=args.dtype,
         decompose_layers=args.decompose_layers,
         filter_layers=args.filter_layers,
-        include_special_tokens=args.include_special_tokens
+        include_special_tokens=args.include_special_tokens,
     )
 
 
