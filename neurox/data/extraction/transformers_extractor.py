@@ -124,15 +124,67 @@ def extract_sentence_representations(
     device="cpu",
     include_embeddings=True,
     aggregation="last",
-    tokenization_counts={},
     dtype="float32",
     include_special_tokens=False,
+    tokenization_counts={},
 ):
     """
-    Get representations for one sentence
-    TODO: Update doc
+    Get representations for a single sentence
+
+    The extractor runs a detokenization procedure to combine subwords
+    automatically. For instance, a sentence "Hello, how are you?" may be
+    tokenized by the model as "Hell @@o , how are you @@?". This extractor
+    automatically detokenizes the subtokens back into the original token.
+
+
+    Parameters
+    ----------
+    sentence : str
+        Sentence for which the extraction needs to be done. The returned output
+        will have representations for exactly the same number of elements as
+        tokens in this sentence (counted by `sentence.split(' ')`).
+
+    model : transformers model
+        An instance of one of the transformers.modeling classes
+
+    tokenizer : transformers tokenizer
+        An instance of one of the transformers.tokenization classes
+
+    device : str, optional
+        Specifies the device (CPU/GPU) on which the extraction should be
+        performed. Defaults to 'cpu'
+
+    include_embeddings : bool, optional
+        Whether the embedding layer should be included in the final output, or
+        just regular layers. Defaults to True
+
+    aggregation : {'first', 'last', 'average'}, optional
+        Aggregation method for combining subword activations. Defaults to 'last'
+
+    dtype : str, optional
+        Data type in which the activations will be stored. Supports all numpy
+        based tensor types. Common values are 'float32' and 'float16'. Defaults
+        to 'float16'
+
+    include_special_tokens : bool, optional
+        Whether or not to special tokens in the extracted representations.
+        Special tokens are tokens not present in the original sentence, but are
+        added by the tokenizer, such as [CLS], [SEP] etc.
+
+    tokenization_counts : dict, optional
+        Tokenization counts to use across a dataset for efficiency
+
+    Returns
+    -------
+    final_hidden_states : numpy.ndarray
+        Numpy Matrix of size [``NUM_LAYERs`` x ``NUM_TOKENS`` x ``NUM_NEURONS``].
+
+    detokenizer : list
+        List of detokenized words. This will have the same number of elements as
+        tokens in the original sentence, plus special tokens if requested. Each element
+        preserves tokenization artifacts (such as `##`, `@@` etc) to enable further
+        automatic processing.
     """
-    # this follows the HuggingFace API for transformers
 
     special_tokens = [
         x for x in tokenizer.all_special_tokens if x != tokenizer.unk_token
@@ -372,7 +424,58 @@ def extract_representations(
     include_special_tokens=False,
 ):
     """
-    TODO: Update doc
+    Extract representations for an entire corpus and save them to disk
+
+    Parameters
+    ----------
+    model_desc : str
+        Model description; can either be a model name like ``bert-base-uncased``,
+        a comma separated list indicating <model>,<tokenizer> (since 1.0.8),
+        or a path to a trained model
+
+    input_corpus : str
+        Path to the input corpus, where each sentence is on its separate line
+
+    output_file : str
+        Path to output file. Supports all filetypes supported by
+        ``data.writer.ActivationsWriter``.
+
+    device : str, optional
+        Specifies the device (CPU/GPU) on which the extraction should be
+        performed. Defaults to 'cpu'
+
+    aggregation : {'first', 'last', 'average'}, optional
+        Aggregation method for combining subword activations. Defaults to 'last'
+
+    output_type : str, optional
+        Explicit definition of output file type if it cannot be derived from the
+        ``output_file`` path
+
+    random_weights : bool, optional
+        Whether the weights of the model should be randomized. Useful for analyses
+        where one needs an untrained model. Defaults to False.
+
+    ignore_embeddings : bool, optional
+        Whether the embedding layer should be excluded in the final output, or
+        kept with the regular layers. Defaults to False
+
+    decompose_layers : bool, optional
+        Whether each layer should have it's own output file, or all layers be saved
+        in a single file. Defaults to False, i.e. single file
+
+    filter_layers : str
+        Comma separated list of layer indices to save. The format is the same as
+        the one accepted by ``data.writer.ActivationsWriter``.
+
+    dtype : str, optional
+        Data type in which the activations will be stored. Supports all numpy
+        based tensor types. Common values are 'float32' and 'float16'. Defaults
+        to 'float16'
+
+    include_special_tokens : bool, optional
+        Whether or not to special tokens in the extracted representations.
+        Special tokens are tokens not present in the original sentence, but are
+        added by the tokenizer, such as [CLS], [SEP] etc.
     """
     print(f"Loading model: {model_desc}")
     model, tokenizer = get_model_and_tokenizer(
@@ -406,9 +509,9 @@ def extract_representations(
             device=device,
             include_embeddings=(not ignore_embeddings),
             aggregation=aggregation,
-            tokenization_counts=tokenization_counts,
             dtype=dtype,
             include_special_tokens=include_special_tokens,
+            tokenization_counts=tokenization_counts,
         )
 
         print("Hidden states: ", hidden_states.shape)
