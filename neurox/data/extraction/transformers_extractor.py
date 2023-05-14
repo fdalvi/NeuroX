@@ -126,6 +126,7 @@ def extract_sentence_representations(
     aggregation="last",
     dtype="float32",
     include_special_tokens=False,
+    seq2seq_component=None,
     tokenization_counts={},
 ):
     """
@@ -232,7 +233,15 @@ def extract_sentence_representations(
         input_ids = torch.tensor([ids]).to(device)
         # Hugging Face format: tuple of torch.FloatTensor of shape (batch_size, sequence_length, hidden_size)
         # Tuple has 13 elements for base model: embedding outputs + hidden states at each layer
-        all_hidden_states = model(input_ids)[-1]
+        if seq2seq_component:
+            # TODO: allow for decoder inputs
+            model_outputs = model(input_ids, decoder_input_ids=tokenizer("", return_tensors="pt").input_ids)
+            if seq2seq_component == "encoder":
+                all_hidden_states = model_outputs.encoder_hidden_states
+            else:
+                raise NotImplementedError
+        else:
+            all_hidden_states = model(input_ids)[-1]
 
         if include_embeddings:
             all_hidden_states = [
@@ -422,6 +431,7 @@ def extract_representations(
     filter_layers=None,
     dtype="float32",
     include_special_tokens=False,
+    seq2seq_component=None
 ):
     """
     Extract representations for an entire corpus and save them to disk
@@ -512,6 +522,7 @@ def extract_representations(
             dtype=dtype,
             include_special_tokens=include_special_tokens,
             tokenization_counts=tokenization_counts,
+            seq2seq_component=seq2seq_component,
         )
 
         print("Hidden states: ", hidden_states.shape)
@@ -558,6 +569,12 @@ def main():
         action="store_true",
         help="Include special tokens like [CLS] and [SEP] in the extracted representations",
     )
+    parser.add_argument(
+        "--seq2seq_component",
+        choices=[None, "encoder", "decoder"],
+        default=None,
+        help="If the model is a seq2seq model, which component should the outputs be saved for",
+    )
 
     ActivationsWriter.add_writer_options(parser)
 
@@ -591,6 +608,7 @@ def main():
         decompose_layers=args.decompose_layers,
         filter_layers=args.filter_layers,
         include_special_tokens=args.include_special_tokens,
+        seq2seq_component=args.seq2seq_component,
     )
 
 
