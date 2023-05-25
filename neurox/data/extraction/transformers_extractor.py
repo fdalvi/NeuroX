@@ -10,6 +10,7 @@ Can also be invoked as a script as follows:
 """
 
 import argparse
+import csv
 import sys
 
 import numpy as np
@@ -127,6 +128,7 @@ def extract_sentence_representations(
     dtype="float32",
     include_special_tokens=False,
     tokenization_counts={},
+    input_type="text"
 ):
     """
     Get representations for a single sentence
@@ -191,44 +193,77 @@ def extract_sentence_representations(
     ]
     special_tokens_ids = tokenizer.convert_tokens_to_ids(special_tokens)
 
-    original_tokens = sentence.split(" ")
+    if input_type == "text":
+        original_tokens = sentence.split(" ")
 
-    # Add letters and spaces around each word since some tokenizers are context sensitive
-    tmp_tokens = []
-    if len(original_tokens) > 0:
-        tmp_tokens.append(f"{original_tokens[0]} a")
-    tmp_tokens += [f"a {x} a" for x in original_tokens[1:-1]]
-    if len(original_tokens) > 1:
-        tmp_tokens.append(f"a {original_tokens[-1]}")
+        # Add letters and spaces around each word since some tokenizers are context sensitive
+        tmp_tokens = []
+        if len(original_tokens) > 0:
+            tmp_tokens.append(f"{original_tokens[0]} a")
+        tmp_tokens += [f"a {x} a" for x in original_tokens[1:-1]]
+        if len(original_tokens) > 1:
+            tmp_tokens.append(f"a {original_tokens[-1]}")
 
-    assert len(original_tokens) == len(
-        tmp_tokens
-    ), f"Original: {original_tokens}, Temp: {tmp_tokens}"
+        sentence = (sentence, )
+        original_tokens = (original_tokens, )
+        tmp_tokens = (tmp_tokens, )
+    elif input_type == "tsv":
+        original_sentence_1, original_sentence_2 = next(csv.reader([sentence], delimiter="\t", quotechar='"'))
+        sentence = (original_sentence_1, original_sentence_2)
+        original_tokens_1 = original_sentence_1.split(" ")
+        original_tokens_2 = original_sentence_2.split(" ")
+
+        # Add letters and spaces around each word since some tokenizers are context sensitive
+        tmp_tokens_1 = []
+
+        if len(original_tokens_1) > 0:
+            tmp_tokens_1.append(f"{original_tokens_1[0]} a")
+        tmp_tokens_1 += [f"a {x} a" for x in original_tokens_1[1:-1]]
+        if len(original_tokens_1) > 1:
+            tmp_tokens_1.append(f"a {original_tokens_1[-1]}")
+
+        # TODO: modularize the token context anchors
+        # TODO: Make sure all tokenizers support multi-sentence
+        tmp_tokens_2 = []
+        if len(original_tokens_2) > 0:
+            tmp_tokens_2.append(f"{original_tokens_2[0]} a")
+        tmp_tokens_2 += [f"a {x} a" for x in original_tokens_2[1:-1]]
+        if len(original_tokens_2) > 1:
+            tmp_tokens_2.append(f"a {original_tokens_2[-1]}")
+
+        original_tokens = (original_tokens_1, original_tokens_2)
+        tmp_tokens = (tmp_tokens_1, tmp_tokens_2)
+
+    for original_tokens_i, tmp_tokens_i in zip(original_tokens, tmp_tokens):
+        assert len(original_tokens_i) == len(
+            tmp_tokens_i
+        ), f"Original: {original_tokens_i}, Temp: {tmp_tokens_i}"
 
     with torch.no_grad():
         # Get tokenization counts if not already available
-        for token_idx, token in enumerate(tmp_tokens):
-            tok_ids = [
-                x for x in tokenizer.encode(token) if x not in special_tokens_ids
-            ]
-            # Ignore the added letter tokens
-            if token_idx != 0 and token_idx != len(tmp_tokens) - 1:
-                # Word appearing in the middle of the sentence
-                tok_ids = tok_ids[1:-1]
-            elif token_idx == 0:
-                # Word appearing at the beginning
-                tok_ids = tok_ids[:-1]
-            else:
-                # Word appearing at the end
-                tok_ids = tok_ids[1:]
+        for tmp_tokens_i in tmp_tokens:
+            for token_idx, token in enumerate(tmp_tokens_i):
+                tok_ids = [
+                    x for x in tokenizer.encode(token) if x not in special_tokens_ids
+                ]
+                # Ignore the added letter tokens
+                if token_idx != 0 and token_idx != len(tmp_tokens_i) - 1:
+                    # Word appearing in the middle of the sentence
+                    tok_ids = tok_ids[1:-1]
+                elif token_idx == 0:
+                    # Word appearing at the beginning
+                    tok_ids = tok_ids[:-1]
+                else:
+                    # Word appearing at the end
+                    tok_ids = tok_ids[1:]
 
-            if token in tokenization_counts:
-                assert tokenization_counts[token] == len(
-                    tok_ids
-                ), "Got different tokenization for already processed word"
-            else:
-                tokenization_counts[token] = len(tok_ids)
-        ids = tokenizer.encode(sentence, truncation=True)
+                if token in tokenization_counts:
+                    assert tokenization_counts[token] == len(
+                        tok_ids
+                    ), "Got different tokenization for already processed word " + token + " " + str(len(tok_ids))
+                else:
+                    tokenization_counts[token] = len(tok_ids)
+        ids = tokenizer.encode(*sentence, truncation=True)
         input_ids = torch.tensor([ids]).to(device)
         # Hugging Face format: tuple of torch.FloatTensor of shape (batch_size, sequence_length, hidden_size)
         # Tuple has 13 elements for base model: embedding outputs + hidden states at each layer
@@ -244,6 +279,10 @@ def extract_sentence_representations(
                 for hidden_states in all_hidden_states[1:]
             ]
         all_hidden_states = np.array(all_hidden_states, dtype=dtype)
+
+    sentence = "\t".join(sentence)
+    original_tokens = [token for subtokens in original_tokens for token in subtokens]
+    tmp_tokens = [token for subtokens in tmp_tokens for token in subtokens]
 
     print('Sentence         : "%s"' % (sentence))
     print("Original    (%03d): %s" % (len(original_tokens), original_tokens))
@@ -422,6 +461,7 @@ def extract_representations(
     filter_layers=None,
     dtype="float32",
     include_special_tokens=False,
+    input_type="text"
 ):
     """
     Extract representations for an entire corpus and save them to disk
@@ -512,6 +552,7 @@ def extract_representations(
             dtype=dtype,
             include_special_tokens=include_special_tokens,
             tokenization_counts=tokenization_counts,
+            input_type=input_type,
         )
 
         print("Hidden states: ", hidden_states.shape)
@@ -558,6 +599,12 @@ def main():
         action="store_true",
         help="Include special tokens like [CLS] and [SEP] in the extracted representations",
     )
+    parser.add_argument(
+        "--input_type",
+        choices=["text", "tsv"],
+        help="Format of the input file, use tsv for multi-sentence inputs",
+        default="text",
+    )
 
     ActivationsWriter.add_writer_options(parser)
 
@@ -591,6 +638,7 @@ def main():
         decompose_layers=args.decompose_layers,
         filter_layers=args.filter_layers,
         include_special_tokens=args.include_special_tokens,
+        input_type=args.input_type
     )
 
 
