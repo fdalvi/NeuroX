@@ -33,8 +33,7 @@ def test_guassian_ranking(snapshot):
     guassian_ordering =  guassian_probe.get_neuron_ordering(probe, 768)
     assert guassian_ordering == snapshot
 
-def test_logistic_regression_probe(snapshot): 
-
+def test_logistic_regression_probe(snapshot):  
     X = np.random.rand(100, 768)
     y = np.random.randint(2, size = 100)
     probe = linear_probe.train_logistic_regression_probe(
