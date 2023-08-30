@@ -16,7 +16,7 @@ random.seed(SEED)
 torch.manual_seed(SEED)
 
 @pytest.fixture
-def first_binary_test_case():
+def first_binary_test_case(): # Is it better to keep them this way? Or is better to right one fixture with all my variables?
     X = np.random.rand(100, 768)
     y = np.random.randint(2, size=100)
     return X, y
@@ -117,9 +117,7 @@ def test_binary_guassian_ranking(guassian_first_test_case, guassian_second_test_
     third_guassian_ordering = guassian_probe.get_neuron_ordering(third_probe, X_third.shape[-1])
     assert third_guassian_ordering == snapshot(name="third_case")
 
-
-
-    
+  
 def test_binary_logistic_regression_probe_lca(first_binary_test_case, second_binary_test_case, third_binary_test_case, snapshot):
     X_first = first_binary_test_case[0]
     y_first = first_binary_test_case[1]
@@ -255,15 +253,144 @@ def test_multiclass_logistic_regression_probe_lca(first_multiclass_test_case, se
     # Test the second multiclass case 
     X_second = second_multiclass_test_case[0]
     y_second = second_multiclass_test_case[1]
-    first_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.1, lambda_l1=0.1)
-    _, top_neurons_second = linear_probe.get_top_neurons(first_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
+    second_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.1, lambda_l1=0.1)
+    _, top_neurons_second = linear_probe.get_top_neurons(second_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
     assert list(top_neurons_second["class0"]) == snapshot(name="class0_ranking_second") 
     assert list(top_neurons_second["class1"]) == snapshot(name="class1_ranking_second") 
     assert list(top_neurons_second["class2"]) == snapshot(name="class2_ranking_second") 
+    # Test third multiclass case 
+    X_third = third_multiclass_test_case[0]
+    y_third = third_multiclass_test_case[1]
+    third_probe = linear_probe.train_logistic_regression_probe(X_third, y_third, lambda_l2=0.1, lambda_l1=0.1)
+    _, top_neurons_third = linear_probe.get_top_neurons(third_probe, 1,  {"class0": 0, "class1": 1, "class2": 2, "class3":3, "class4":4})
+    assert list(top_neurons_third["class0"]) == snapshot(name="class0_ranking_third") 
+    assert list(top_neurons_third["class1"]) == snapshot(name="class1_ranking_third") 
+    assert list(top_neurons_third["class2"]) == snapshot(name="class2_ranking_third") 
+    assert list(top_neurons_third["class3"]) == snapshot(name="class3_ranking_third") 
+    assert list(top_neurons_third["class4"]) == snapshot(name="class4_ranking_third") 
 
-    # Test the the third multiclass case
-    
 
 
 
+
+
+def test_multiclass_logistic_regression_probe_lca(first_multiclass_test_case, second_multiclass_test_case, third_multiclass_test_case, snapshot):
+    # Test the first multiclass case
+    X_first = first_multiclass_test_case[0]
+    y_first = first_multiclass_test_case[1]
+    first_probe = linear_probe.train_logistic_regression_probe(X_first, y_first, lambda_l2=0.1, lambda_l1=0.1)
+    _, top_neurons_first = linear_probe.get_top_neurons(first_probe, 1, {"class0": 0, "class1": 1, "class2": 2, "class3":3}) 
+    assert list(top_neurons_first["class0"]) == snapshot(name="class0_ranking_first") 
+    assert list(top_neurons_first["class1"]) == snapshot(name="class1_ranking_first") 
+    assert list(top_neurons_first["class2"]) == snapshot(name="class2_ranking_first") 
+    assert list(top_neurons_first["class3"]) == snapshot(name="class3_ranking_first") 
+    # Test the second multiclass case 
+    X_second = second_multiclass_test_case[0]
+    y_second = second_multiclass_test_case[1]
+    second_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.1, lambda_l1=0.1)
+    _, top_neurons_second = linear_probe.get_top_neurons(second_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
+    assert list(top_neurons_second["class0"]) == snapshot(name="class0_ranking_second") 
+    assert list(top_neurons_second["class1"]) == snapshot(name="class1_ranking_second") 
+    assert list(top_neurons_second["class2"]) == snapshot(name="class2_ranking_second") 
+    # Test third multiclass case 
+    X_third = third_multiclass_test_case[0]
+    y_third = third_multiclass_test_case[1]
+    third_probe = linear_probe.train_logistic_regression_probe(X_third, y_third, lambda_l2=0.1, lambda_l1=0.1)
+    _, top_neurons_third = linear_probe.get_top_neurons(third_probe, 1,  {"class0": 0, "class1": 1, "class2": 2, "class3":3, "class4":4})
+    assert list(top_neurons_third["class0"]) == snapshot(name="class0_ranking_third") 
+    assert list(top_neurons_third["class1"]) == snapshot(name="class1_ranking_third") 
+    assert list(top_neurons_third["class2"]) == snapshot(name="class2_ranking_third") 
+    assert list(top_neurons_third["class3"]) == snapshot(name="class3_ranking_third") 
+    assert list(top_neurons_third["class4"]) == snapshot(name="class4_ranking_third")
+
+
+
+def test_multiclass_logistic_regression_probe_no_reg(first_multiclass_test_case, second_multiclass_test_case, third_multiclass_test_case, snapshot):
+    # Test the first multiclass case
+    X_first = first_multiclass_test_case[0]
+    y_first = first_multiclass_test_case[1]
+    first_probe = linear_probe.train_logistic_regression_probe(X_first, y_first, lambda_l2=0.0, lambda_l1=0.0)
+    _, top_neurons_first = linear_probe.get_top_neurons(first_probe, 1, {"class0": 0, "class1": 1, "class2": 2, "class3":3}) 
+    assert list(top_neurons_first["class0"]) == snapshot(name="class0_ranking_first") 
+    assert list(top_neurons_first["class1"]) == snapshot(name="class1_ranking_first") 
+    assert list(top_neurons_first["class2"]) == snapshot(name="class2_ranking_first") 
+    assert list(top_neurons_first["class3"]) == snapshot(name="class3_ranking_first") 
+    # Test the second multiclass case 
+    X_second = second_multiclass_test_case[0]
+    y_second = second_multiclass_test_case[1]
+    second_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.0, lambda_l1=0.0)
+    _, top_neurons_second = linear_probe.get_top_neurons(second_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
+    assert list(top_neurons_second["class0"]) == snapshot(name="class0_ranking_second") 
+    assert list(top_neurons_second["class1"]) == snapshot(name="class1_ranking_second") 
+    assert list(top_neurons_second["class2"]) == snapshot(name="class2_ranking_second") 
+    # Test third multiclass case 
+    X_third = third_multiclass_test_case[0]
+    y_third = third_multiclass_test_case[1]
+    third_probe = linear_probe.train_logistic_regression_probe(X_third, y_third, lambda_l2=0.0, lambda_l1=0.0)
+    _, top_neurons_third = linear_probe.get_top_neurons(third_probe, 1,  {"class0": 0, "class1": 1, "class2": 2, "class3":3, "class4":4})
+    assert list(top_neurons_third["class0"]) == snapshot(name="class0_ranking_third") 
+    assert list(top_neurons_third["class1"]) == snapshot(name="class1_ranking_third") 
+    assert list(top_neurons_third["class2"]) == snapshot(name="class2_ranking_third") 
+    assert list(top_neurons_third["class3"]) == snapshot(name="class3_ranking_third") 
+    assert list(top_neurons_third["class4"]) == snapshot(name="class4_ranking_third")
+
+
+def test_multiclass_logistic_regression_probe_lasso(first_multiclass_test_case, second_multiclass_test_case, third_multiclass_test_case, snapshot):
+    # Test the first multiclass case
+    X_first = first_multiclass_test_case[0]
+    y_first = first_multiclass_test_case[1]
+    first_probe = linear_probe.train_logistic_regression_probe(X_first, y_first, lambda_l2=0.0, lambda_l1=0.1)
+    _, top_neurons_first = linear_probe.get_top_neurons(first_probe, 1, {"class0": 0, "class1": 1, "class2": 2, "class3":3}) 
+    assert list(top_neurons_first["class0"]) == snapshot(name="class0_ranking_first") 
+    assert list(top_neurons_first["class1"]) == snapshot(name="class1_ranking_first") 
+    assert list(top_neurons_first["class2"]) == snapshot(name="class2_ranking_first") 
+    assert list(top_neurons_first["class3"]) == snapshot(name="class3_ranking_first") 
+    # Test the second multiclass case 
+    X_second = second_multiclass_test_case[0]
+    y_second = second_multiclass_test_case[1]
+    second_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.0, lambda_l1=0.1)
+    _, top_neurons_second = linear_probe.get_top_neurons(second_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
+    assert list(top_neurons_second["class0"]) == snapshot(name="class0_ranking_second") 
+    assert list(top_neurons_second["class1"]) == snapshot(name="class1_ranking_second") 
+    assert list(top_neurons_second["class2"]) == snapshot(name="class2_ranking_second") 
+    # Test third multiclass case 
+    X_third = third_multiclass_test_case[0]
+    y_third = third_multiclass_test_case[1]
+    third_probe = linear_probe.train_logistic_regression_probe(X_third, y_third, lambda_l2=0.0, lambda_l1=0.1)
+    _, top_neurons_third = linear_probe.get_top_neurons(third_probe, 1,  {"class0": 0, "class1": 1, "class2": 2, "class3":3, "class4":4})
+    assert list(top_neurons_third["class0"]) == snapshot(name="class0_ranking_third") 
+    assert list(top_neurons_third["class1"]) == snapshot(name="class1_ranking_third") 
+    assert list(top_neurons_third["class2"]) == snapshot(name="class2_ranking_third") 
+    assert list(top_neurons_third["class3"]) == snapshot(name="class3_ranking_third") 
+    assert list(top_neurons_third["class4"]) == snapshot(name="class4_ranking_third")
+
+
+def test_multiclass_logistic_regression_probe_ridge(first_multiclass_test_case, second_multiclass_test_case, third_multiclass_test_case, snapshot):
+    # Test the first multiclass case
+    X_first = first_multiclass_test_case[0]
+    y_first = first_multiclass_test_case[1]
+    first_probe = linear_probe.train_logistic_regression_probe(X_first, y_first, lambda_l2=0.1, lambda_l1=0.0)
+    _, top_neurons_first = linear_probe.get_top_neurons(first_probe, 1, {"class0": 0, "class1": 1, "class2": 2, "class3":3}) 
+    assert list(top_neurons_first["class0"]) == snapshot(name="class0_ranking_first") 
+    assert list(top_neurons_first["class1"]) == snapshot(name="class1_ranking_first") 
+    assert list(top_neurons_first["class2"]) == snapshot(name="class2_ranking_first") 
+    assert list(top_neurons_first["class3"]) == snapshot(name="class3_ranking_first") 
+    # Test the second multiclass case 
+    X_second = second_multiclass_test_case[0]
+    y_second = second_multiclass_test_case[1]
+    second_probe = linear_probe.train_logistic_regression_probe(X_second, y_second, lambda_l2=0.1, lambda_l1=0.0)
+    _, top_neurons_second = linear_probe.get_top_neurons(second_probe, 1, {"class0": 0, "class1": 1, "class2": 2}) 
+    assert list(top_neurons_second["class0"]) == snapshot(name="class0_ranking_second") 
+    assert list(top_neurons_second["class1"]) == snapshot(name="class1_ranking_second") 
+    assert list(top_neurons_second["class2"]) == snapshot(name="class2_ranking_second") 
+    # Test third multiclass case 
+    X_third = third_multiclass_test_case[0]
+    y_third = third_multiclass_test_case[1]
+    third_probe = linear_probe.train_logistic_regression_probe(X_third, y_third, lambda_l2=0.1, lambda_l1=0.0)
+    _, top_neurons_third = linear_probe.get_top_neurons(third_probe, 1,  {"class0": 0, "class1": 1, "class2": 2, "class3":3, "class4":4})
+    assert list(top_neurons_third["class0"]) == snapshot(name="class0_ranking_third") 
+    assert list(top_neurons_third["class1"]) == snapshot(name="class1_ranking_third") 
+    assert list(top_neurons_third["class2"]) == snapshot(name="class2_ranking_third") 
+    assert list(top_neurons_third["class3"]) == snapshot(name="class3_ranking_third") 
+    assert list(top_neurons_third["class4"]) == snapshot(name="class4_ranking_third")
 
