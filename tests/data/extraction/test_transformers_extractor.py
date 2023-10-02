@@ -13,6 +13,35 @@ import numpy as np
 import torch
 
 
+class MockTokenizer(object):
+    all_special_tokens = ["<s>", "</s>"]
+    vocab = {"a", "b", "c", *all_special_tokens}
+    token_to_idx = {t: idx for idx, t in enumerate(vocab)}
+    idx_to_tokens = {idx: t for t, idx in token_to_idx.items()}
+
+    def convert_tokens_to_ids(self, tokens):
+        ids = []
+        for tok in tokens:
+            if tok not in self.token_to_idx:
+                self.vocab.add(tok)
+                idx = len(self.token_to_idx)
+                self.token_to_idx[tok] = idx
+                self.idx_to_tokens[idx] = tok
+            ids.append(self.token_to_idx[tok])
+
+        return ids
+
+    def convert_ids_to_tokens(self, ids):
+        return [self.idx_to_tokens.get(idx, "UNSEEN") for idx in ids]
+
+    def __call__(self, text):
+        return {
+            "input_ids": self.convert_tokens_to_ids(
+                f"<s> {text.strip()} </s>".split(" ")
+            )
+        }
+
+
 class TestAggregation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1023,7 +1052,7 @@ class TestSaving(unittest.TestCase):
     @patch("neurox.data.extraction.transformers_extractor.get_model_and_tokenizer")
     def test_save_hdf5(self, get_model_mock, extraction_mock):
         "Saving activations in single hdf5 file"
-        get_model_mock.return_value = (None, None)
+        get_model_mock.return_value = (None, MockTokenizer())
         extraction_mock.side_effect = self.mocked_model
 
         output_file = os.path.join(self.tmpdir.name, "output.hdf5")
@@ -1065,7 +1094,7 @@ class TestSaving(unittest.TestCase):
     @patch("neurox.data.extraction.transformers_extractor.get_model_and_tokenizer")
     def test_save_json(self, get_model_mock, extraction_mock):
         "Saving activations in single json file"
-        get_model_mock.return_value = (None, None)
+        get_model_mock.return_value = (None, MockTokenizer())
         extraction_mock.side_effect = self.mocked_model
 
         output_file = os.path.join(self.tmpdir.name, "output.json")
@@ -1108,7 +1137,7 @@ class TestSaving(unittest.TestCase):
     @patch("neurox.data.extraction.transformers_extractor.get_model_and_tokenizer")
     def test_save_decomposed(self, get_model_mock, extraction_mock):
         "Saving activations in multiple files, one per layer"
-        get_model_mock.return_value = (None, None)
+        get_model_mock.return_value = (None, MockTokenizer())
         extraction_mock.side_effect = self.mocked_model
 
         base_output_file = os.path.join(self.tmpdir.name, "output.hdf5")
@@ -1144,7 +1173,7 @@ class TestSaving(unittest.TestCase):
     @patch("neurox.data.extraction.transformers_extractor.get_model_and_tokenizer")
     def test_save_filter_layers(self, get_model_mock, extraction_mock):
         "Saving activations from specific layers"
-        get_model_mock.return_value = (None, None)
+        get_model_mock.return_value = (None, MockTokenizer())
         extraction_mock.side_effect = self.mocked_model
 
         output_file = os.path.join(self.tmpdir.name, "output.hdf5")
@@ -1176,7 +1205,7 @@ class TestSaving(unittest.TestCase):
     @patch("neurox.data.extraction.transformers_extractor.get_model_and_tokenizer")
     def test_save_decomposed_filter_layers(self, get_model_mock, extraction_mock):
         "Saving activations in multiple files, for specific layers"
-        get_model_mock.return_value = (None, None)
+        get_model_mock.return_value = (None, MockTokenizer())
         extraction_mock.side_effect = self.mocked_model
 
         base_output_file = os.path.join(self.tmpdir.name, "output.hdf5")

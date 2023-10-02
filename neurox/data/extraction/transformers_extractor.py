@@ -128,6 +128,7 @@ def extract_sentence_representations(
     include_special_tokens=False,
     seq2seq_component=None,
     tokenization_counts={},
+    context_indicator="a",
 ):
     """
     Get representations for a single sentence
@@ -175,6 +176,12 @@ def extract_sentence_representations(
     tokenization_counts : dict, optional
         Tokenization counts to use across a dataset for efficiency
 
+    context_indicator : str, optional
+        A token that is guaranteed to be a unbroken after tokenization. Usually an
+        element from the tokenizer's vocab. Defaults to 'a' which works for most
+        models, but may break if 'a' is split into multiple sub-tokens (e.g. breaks
+        for `google/mt5-base`).
+
     Returns
     -------
     final_hidden_states : numpy.ndarray
@@ -197,10 +204,12 @@ def extract_sentence_representations(
     # Add letters and spaces around each word since some tokenizers are context sensitive
     tmp_tokens = []
     if len(original_tokens) > 0:
-        tmp_tokens.append(f"{original_tokens[0]} a")
-    tmp_tokens += [f"a {x} a" for x in original_tokens[1:-1]]
+        tmp_tokens.append(f"{original_tokens[0]} {context_indicator}")
+    tmp_tokens += [
+        f"{context_indicator} {x} {context_indicator}" for x in original_tokens[1:-1]
+    ]
     if len(original_tokens) > 1:
-        tmp_tokens.append(f"a {original_tokens[-1]}")
+        tmp_tokens.append(f"{context_indicator} {original_tokens[-1]}")
 
     assert len(original_tokens) == len(
         tmp_tokens
@@ -235,7 +244,10 @@ def extract_sentence_representations(
         # Tuple has 13 elements for base model: embedding outputs + hidden states at each layer
         if seq2seq_component:
             # TODO: allow for decoder inputs
-            model_outputs = model(input_ids, decoder_input_ids=tokenizer("", return_tensors="pt").input_ids)
+            model_outputs = model(
+                input_ids,
+                decoder_input_ids=tokenizer("", return_tensors="pt").input_ids,
+            )
             if seq2seq_component == "encoder":
                 all_hidden_states = model_outputs.encoder_hidden_states
             else:
@@ -431,7 +443,7 @@ def extract_representations(
     filter_layers=None,
     dtype="float32",
     include_special_tokens=False,
-    seq2seq_component=None
+    seq2seq_component=None,
 ):
     """
     Extract representations for an entire corpus and save them to disk
@@ -509,6 +521,21 @@ def extract_representations(
         dtype=dtype,
     )
 
+    context_indicator = None
+    special_token_ids = tokenizer.convert_tokens_to_ids(tokenizer.all_special_tokens)
+
+    for subtoken in tokenizer.vocab:
+        pieces = [
+            idx
+            for idx in tokenizer(subtoken)["input_ids"]
+            if idx not in special_token_ids
+        ]
+        if len(pieces) == 1:
+            context_indicator = subtoken
+            break
+
+    assert context_indicator is not None
+
     print("Extracting representations from model")
     tokenization_counts = {}  # Cache for tokenizer rules
     for sentence_idx, sentence in enumerate(corpus_generator(input_corpus)):
@@ -523,6 +550,7 @@ def extract_representations(
             include_special_tokens=include_special_tokens,
             tokenization_counts=tokenization_counts,
             seq2seq_component=seq2seq_component,
+            context_indicator=context_indicator,
         )
 
         print("Hidden states: ", hidden_states.shape)
