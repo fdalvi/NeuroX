@@ -50,6 +50,7 @@ pip install -e .
 
 ## Sample Code
 A Jupyter notebook with a complete example of extracting activations from BERT, training a toy task, extracting neurons and visualizing them is available in the [examples](examples/End%20to%20End%20Example.ipynb) directory for a quick introduction to the main functionality provided by this toolkit.
+Another [notebook](examples/ner_example.ipynb) illustrates the core functions of NeuroX on a NER dataset.
 
 ## Documentation
 [API Reference](https://neurox.qcri.org/docs/) contains an API reference for all of the functions exposed by this toolkit. Primarily, the toolkit's functionality is separated into several high-level components:
